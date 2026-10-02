@@ -449,19 +449,6 @@ html[dir="rtl"] .hero-section {
   border-top: 1px solid var(--border-color);
 }
 
-.social-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-subtle);
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
-  transition: all var(--transition-fast);
-}
-
 .social-btn:hover {
   transform: translateY(-3px);
   color: #FFFFFF;
