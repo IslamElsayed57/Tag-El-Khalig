@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "taj-el-khalig",
+  "compatibility_date": "2026-10-02",
+  "pages_build_output_dir": "public",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tag-el-khalig",
+      "database_id": "c2b3d6fa-d455-4aa8-9122-e11ac1c9c2c8"
+    }
+  ]
+}

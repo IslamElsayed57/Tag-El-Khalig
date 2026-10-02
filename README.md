@@ -1,183 +1,42 @@
 # حلواني تاج الخليج | Taj El Khalig Sweets
 
-مشروع متكامل لمحل حلويات شرقية وغربية راقٍ موجه للمجتمع المصري، يتضمن:
-1. **الموقع الإلكتروني للعملاء (Customer-Facing Website):** تصفح المنتجات والأقسام، عربة مشتريات ديناميكية، تحديد الموقع الجغرافي GPS، وخيارات الاستلام والتوصيل.
-2. **لوحة التحكم الشاملة (Admin Dashboard):** إدارة الطلبات، سجل العملاء، الأقسام والمنتجات، الفروع وإعدادات المتجر، الحسابات والصلاحيات، والتقارير المتقدمة مع الطباعة.
+Responsive Arabic/English sweets shop and admin dashboard built with HTML, CSS, and vanilla JavaScript. Cloudflare Pages serves the static storefront and admin UI; Pages Functions provide the same-origin API; Cloudflare D1 stores products, branches, orders, customers, accounts, and settings.
 
-تم بناء الواجهات بالكامل باستخدام **HTML5 و CSS3 و Vanilla JavaScript** فقط وبدون أي أطر عمل خارجية (No React / Vue / Angular / Bootstrap / Tailwind)، مع التوافق التام مع الشاشات من الهاتف المحمول وحتى أجهزة سطح المكتب (Mobile-First Responsive Design).
+## Cloudflare deployment
 
----
+The repository includes `wrangler.jsonc` with the D1 binding `DB` and database ID supplied for `tag-el-khalig`. The Pages build output is `public/`; the Worker API remains in `functions/` and is not exposed as a static file.
 
-## 🎨 الهوية البصرية ونظام الألوان (Brand Identity)
+1. In Cloudflare, open **Workers & Pages → Create application → Pages → Connect to Git** and select `IslamElsayed57/Tag-El-Khalig`, production branch `main`.
+2. Leave the build command empty and set the output directory to `public`. If Cloudflare offers to read `wrangler.jsonc`, allow it. The configuration declares the D1 binding.
+3. In the Pages project, open **Settings → Variables and Secrets** and add production secrets `TAJ_ADMIN_USER` and `TAJ_ADMIN_PASSWORD`. Use a unique password of at least 16 characters. Do not commit these values.
+4. Deploy the project. The first API request creates the D1 tables, inserts the starter catalogue/settings, and creates the first admin if both secrets are present. Open `/api/health` once, then sign in at `/admin/`.
 
-تم استنباط لوحة الألوان مباشرة من الشعار المرفق لمحل "تاج الخليج":
-- **اللون الأساسي (Primary Brand):** الوردي التوتي الملكي (`#E4007C` / `--primary`) مستوحى من لون الخط الدائري في الشعار.
-- **اللون الثانوي (Accent Gold):** الذهبي الدافئ (`#D4AF37` / `--gold`) ليعكس الفخامة والزخرفة الإسلامية/الشرقية الأنيقة.
-- **الخلفيات (Ivory / Velvet):**
-  - **الوضع النهاري (Day Mode):** عاجي دافئ فاخر (`#FDFBF7`) يعزز الشهية وراحة العين.
-  - **الوضع الليلي (Night Mode):** قطيفة داكنة أنيقة (`#150B12` و `#20111B`) مع تباين عالي للنصوص.
-- **الخطوط:** استخدام خط `Cairo` العربي الأنيق وخط `Outfit` اللاتيني مع دعم اتجاه القراءة من اليمين لليسار (RTL) ومن اليسار لليمين (LTR).
+The database currently has ID `c2b3d6fa-d455-4aa8-9122-e11ac1c9c2c8`. If Cloudflare asks to create a D1 binding manually, use variable name `DB` and select database `tag-el-khalig`. The SQL schema is also stored in `migrations/0001_init.sql` for manual review or setup.
 
----
+### Local development
 
-## 🌟 الميزات المنفذة (Implemented Features)
+Install Node.js and Wrangler, then run:
 
-### 1. موقع العملاء (Customer Storefront)
-- **أزرار التحكم العلوية الدائمة:**
-  - زر تبديل اللغة (العربية RTL / الإنجليزية LTR) مع ترجمة فورية لكافة النصوص والرسائل.
-  - زر تبديل وضع الإضاءة (نهاري / ليلي) مع حفظ تفضيلات المستخدم تلقائياً في `localStorage`.
-- **شريط التنقل والتفاعل (Sticky Header & Nav):**
-  - شعار المحل الرسمي مع العبارة الترويجية "أحلى طعم".
-  - قائمة تنقل متجاوبة للأجهزة المكتبية وقائمة جانبية سهلة اللمس للهواتف الذكية (Drawer Menu).
-  - زر عربة المشتريات مزود ببادج تفاعلي يعرض عدد الأصناف مع تأثير حركي عند الإضافة.
-- **الصفحة الرئيسية (index.html):**
-  - هيرو بنر فاخر بصورة حلويات شرقية وغربية طازجة، وعناوين ترويجية مبتكرة.
-  - نبذة تحريرية حصرية بأسلوب راقٍ مستوحى من عراقة الحلويات المصرية (باستخدام السمن البلدي الطبيعي والقشطة والمكسرات الفاخرة).
-  - شريط الأقسام السريعة، وتشكيلة المنتجات المميزة مع إمكانية إضافتها مباشرة للسلة.
-  - شريط إعلاني ديناميكي يوضح قيمة التوصيل المجاني المحددة في لوحة التحكم.
-- **صفحة الأقسام وقائمة الأسعار (categories.html):**
-  - فلترة سريعة بالأقسام النشطة مع زر "جميع الأصناف".
-  - محرك بحث فوري بالاسم والوصف مع شاشة إيضاحية عند عدم وجود نتائج (Empty State).
-  - بطاقة المنتج: الاسم، الصورة، الوصف، السعر، السعر المخفض وبادج نسبة الخصم، حالة التوفر، وزر إضافة للسلة.
-- **عربة المشتريات وإتمام الطلب (Cart Drawer & cart.html):**
-  - مؤشر ذكي يوضح المبلغ المتبقي للحصول على توصيل مجاني تلقائياً.
-  - اختيار وسيلة الاستلام:
-    1. **استلام من الفرع (Branch Pickup):** اختيار الفرع مع عرض عنوانه ورقم هاتفه ومديره ورابط مباشر لخرائط جوجل.
-    2. **توصيل للمنزل (Home Delivery):** زر تحديد الموقع الجغرافي الدقيق عبر GPS بموافقة العميل (مع معالجة الأخطاء والإدخال اليدوي كبديل)، واختيار أقرب فرع مؤهل للتوصيل.
-  - حقول اسم العميل ورقم الهاتف المصري (تحقق صارم من 11 رقماً تبدأ بـ 01).
-  - حقل ملاحظات إضافية على الطلب.
-  - نافذة تأكيد الطلب مع كود الطلب وزر متابعة عبر واتساب مباشرة.
-- **صفحة التواصل والفروع (branches.html):**
-  - قنوات التواصل: الهاتف الموحد، الواتساب المباشر، البريد الإلكتروني، وروابط فيسبوك وانستغرام وتيك توك.
-  - بطاقات تفصيلية لجميع الفروع الفعالة مع عناوينها ومدرائها وهواتفها وأزرار خرائط Google.
-  - معاينة تفاعلية لخريطة الفروع واستمارة إرسال رسائل واستفسارات.
-
----
-
-### 2. لوحة تحكم الإدارة (Admin Dashboard - /admin/)
-- **شريط جانبي متجاوب وقابل للطي (Collapsible Sidebar):**
-  - الطلبات (Orders)
-  - بيانات العملاء (Customers)
-  - الأقسام والمنتجات (Categories & Products)
-  - الفروع وإعدادات المتجر (Branches & Settings)
-  - الحسابات والصلاحيات (Accounts & Roles)
-  - التقارير والمبيعات (Reports)
-- **قسم الطلبات (Orders):**
-  - كروت إحصائية سريعة: طلبات جديدة، جاهزة، مكتملة، وملغاة.
-  - بحث بالاسم ورقم الهاتف ورقم الطلب، وفلاتر التاريخ وفلاتر الحالة.
-  - جدول تفصيلي مع ترقيم الصفحات (20 طلباً في الصفحة لتقليل الحمل وتسريع الأداء).
-  - زر تصدير بيانات الطلبات شيت إكسيل (CSV بتشفير UTF-8 مع BOM لضمان قراءة اللغة العربية والجنية المصري سليمة في Excel).
-  - نافذة تفاصيل الطلب: المنتجات وصورها، رسوم التوصيل، الإجمالي، بيانات العميل، رابط GPS لخرائط جوجل، وتغيير الحالة.
-  - إشعارات فورية وتنبيه صوتي عالي النقاء (Web Audio API Synthesizer) يمكن كتمه وتفعيله.
-- **قسم العملاء (Customers):**
-  - تجميع العملاء تلقائياً بناءً على رقم الهاتف الفريد.
-  - عرض إجمالي الطلبات، تاريخ آخر طلب، وإجمالي إنفاق العميل التراكمي.
-  - استعراض سجل طلبات العميل السابقة بالتفصيل.
-- **قسم الأقسام والمنتجات (Categories & Products):**
-  - أزرار إضافة قسم وإضافة منتج.
-  - استيراد وتصدير المنتجات كملف إكسيل (CSV) مع إمكانية تنزيل نموذج CSV جاهز.
-  - رفع صور المنتجات من الجهاز مع معاينة فورية أو اختيار صور جاهزة للحلويات.
-  - تفعيل وتعطيل المنتجات والأقسام، مع حظر ترك منتجات نشطة في قسم معطل (Safety Rule).
-  - تحديد جماعي وحذف المنتجات دفعة واحدة بعد التأكيد.
-- **قسم الفروع وإعدادات المتجر (Branches & Settings):**
-  - إضافة وتعديل الفروع، تعيين إمكانية التوصيل، روابط الخرائط وإدارة المدراء.
-  - إعدادات أرقام التواصل وروابط السوشيال ميديا، وقيمة التوصيل وحد التوصيل المجاني وتحديثها على الفور في متجر العملاء.
-- **قسم الحسابات والصلاحيات (Accounts & Permissions):**
-  - نظام صلاحيات دورين:
-    1. **Admin (مدير عام):** صلاحية كاملة.
-    2. **Branch (حساب فرع):** مقيد بطلبات وتقارير فرعه فقط، مع حجب وإخفاء إمكانية تعديل المنتجات أو الأقسام أو الفروع أو إعدادات المتجر.
-  - محاكي تبديل الحسابات بضغطة زر لاختبار الصلاحيات مباشرة.
-- **قسم التقارير والمبيعات (Reports):**
-  - فلاتر بالتاريخ (اليوم، هذا الشهر، مخصص) وبالفرع.
-  - إجمالي المبيعات، عدد الطلبات المؤكدة، ومتوسط قيمة الطلب.
-  - **قاعدة محاسبية صريحة:** استبعاد الطلبات الملغاة تماماً من إجمالي المبيعات.
-  - جدول تفصيلي لمبيعات كل فرع ونسبة مساهمته.
-  - زر طباعة مخصص يطبع التقرير الرسمي بتنسيق A4 نقي بدون أزرار أو شريط جانبي (عبر `print.css`).
-
----
-
-## 🗂️ هيكل الملفات (Project Structure)
-
-```
-Tag El-khalig/
-├── index.html                   # واجهة المتجر الرئيسية (الهيرو، حكايتنا، الأصناف المميزة)
-├── categories.html              # صفحة قائمة الحلويات والبحث والفلترة
-├── branches.html                # صفحة خدمات التواصل والفروع والخريطة
-├── cart.html                    # صفحة السلة وإتمام الطلب المباشرة
-├── README.md                    # التوثيق الشامل ودليل الربط البرمجي
-├── .env.example                 # نموذج إعداد حساب المدير الأول
-├── server/
-│   └── server.mjs               # API، جلسات الدخول، SQLite، وإشعارات SSE
-├── assets/
-│   ├── css/
-│   │   ├── main.css             # المتغيرات العامة، نظام الألوان، الأزرار، والوضع الليلي
-│   │   └── storefront.css       # تنسيقات أقسام المتجر والهيرو والفوتر
-│   ├── js/
-│   │   ├── i18n.js              # نظام الترجمة الفورية عربي/إنجليزي
-│   │   ├── theme.js             # مدير الوضع النهاري والليلي وحفظ التفضيل
-│   │   ├── api.js               # طبقة الاتصال بخادم البيانات المشترك
-│   │   ├── config.js            # إعداد عنوان API للموقع ولوحة التحكم
-│   │   ├── cart.js              # محرك السلة وحسابات التوصيل وتحديد موقع GPS
-│   │   └── storefront.js        # متحكم صفحات المتجر وقوائم الفلترة
-│   └── images/
-│       ├── logo.jpeg            # شعار حلواني تاج الخليج الأصلي
-│       ├── hero_sweets.jpg      # صورة الواجهة الرئيسية للحلويات الشرقية
-│       ├── kunafa_plate.jpg     # صورة كنافة نابلسية بالقشطة والفستق
-│       ├── basbousa_plate.jpg   # صورة بسبوسة ملكي باللوز البلدي
-│       └── gateau_cake.jpg      # صورة تورتة وجاتوه فاخر
-└── admin/
-    ├── index.html               # لوحة تحكم الإدارة الشاملة
-    ├── css/
-    │   ├── admin.css            # تصميم لوحة التحكم، الجداول، الكروت، والتجاوب
-    │   └── print.css            # تنسيق الطباعة المخصص لتقارير المبيعات
-    ├── assets/
-    │   └── logo.jpeg            # الشعار المعتمد
-    └── js/
-        ├── admin.js             # المتحكم العام باللوحة، الصلاحيات، والصوت
-        ├── orders.js            # إدارة الطلبات، الترقيم (20/صفحة)، وتصدير CSV
-        ├── customers.js         # تجميع بيانات وسجل العملاء التراكمي
-        ├── products.js          # إضافة وتعديل المنتجات والأقسام ورفع الصور
-        ├── branches.js          # إدارة الفروع وإعدادات المتجر
-        ├── accounts.js          # إدارة الصلاحيات (Admin vs Branch)
-        └── reports.js           # تقارير المبيعات والأداء الحسابي والطباعة
+```sh
+npx wrangler pages dev public
 ```
 
----
+Create a local `.dev.vars` file with `TAJ_ADMIN_USER` and `TAJ_ADMIN_PASSWORD` for the first local admin. `.dev.vars` is ignored by Git. Local D1 data is isolated from production.
 
-## تشغيل الموقع والخادم المشترك
+### Data, authentication, and notifications
 
-الموقع ولوحة التحكم يستخدمان الآن API على نفس الخادم. يلزم Node.js 24 أو أحدث؛ لا توجد حزم npm مطلوبة، لأن الخادم يستخدم `node:sqlite` المدمج في Node.
+- Orders are priced and validated by the API before they are written to D1.
+- Admin and branch permissions are checked on the server. Passwords use PBKDF2; sessions use secure, HttpOnly, SameSite cookies.
+- The dashboard checks the event endpoint every 10 seconds while open to receive new-order, status, catalogue, branch, and settings updates. This polling approach works on the free Pages plan without a permanently running server.
+- Uploaded product photos are resized in the browser and stored with the product record. Keep photos small; D1 has per-row and total free-tier storage limits.
+- Cloudflare's free plan has daily request/read/write/storage quotas. When quotas are reached, some API/database operations can pause until limits reset. Review current limits before relying on it for high-volume production.
 
-1. انسخ `.env.example` إلى `.env`، واختر اسم مستخدم مدير وكلمة مرور فريدة قوية (16 حرفاً أو أكثر).
-2. من مجلد المشروع شغّل:
-   ```powershell
-   node --env-file=.env server/server.mjs
-   ```
-3. افتح `http://localhost:8080/` للمتجر و`http://localhost:8080/admin/` للوحة التحكم. لا تفتح ملفات HTML مباشرة.
-4. أول تشغيل ينشئ `data/taj.sqlite` ويهيئ بيانات أولية. أول حساب مدير ينشأ من `TAJ_ADMIN_USER` و`TAJ_ADMIN_PASSWORD`. أنشئ حسابات الفروع من لوحة الحسابات بعد دخول المدير.
+## Project layout
 
-### ما أصبح متصلاً
+- `public/` — customer storefront, assets, and `/admin/` dashboard.
+- `functions/api/[[path]].js` — same-origin Pages Functions API.
+- `migrations/0001_init.sql` — D1 schema.
+- `wrangler.jsonc` — Pages output and D1 binding.
+- `server/server.mjs` — previous Node/SQLite server retained for reference; Cloudflare Pages uses the Functions API instead.
 
-- الطلبات والمنتجات والأقسام والفروع والإعدادات تُقرأ وتُحفظ في قاعدة SQLite واحدة على الخادم.
-- الخادم يعيد احتساب أسعار الطلب ورسوم التوصيل من بياناته بدل الثقة بمجموع المتصفح.
-- تسجيل دخول لوحة التحكم يستخدم جلسة Cookie آمنة و`HttpOnly`، وتُخزن كلمات المرور بصيغة مشتقة باستخدام `scrypt`.
-- صلاحيات `admin` و`branch` تُفرض على نقاط API؛ مستخدم الفرع يرى طلباته وتقاريره فقط.
-- الطلبات وتغير حالتها تُبث للمستخدمين المسجلين عبر Server-Sent Events (SSE).
-- بيانات العملاء والتقارير تستند إلى الطلبات المحفوظة في قاعدة البيانات.
-
-### النشر على GitHub وRender
-
-المشروع مجهز للنشر من مستودع GitHub إلى Render عبر `render.yaml`:
-
-1. ارفع ملفات المشروع إلى مستودع GitHub. لا تضف `.env` أو `data/` أو ملفات SQLite إلى المستودع؛ `.gitignore` يستثنيها.
-2. في Render اختر إنشاء Blueprint جديد، اربط حساب GitHub، ثم اختر مستودع المشروع الذي يحتوي `render.yaml`.
-3. سيطلب Render قيمتي `TAJ_ADMIN_USER` و`TAJ_ADMIN_PASSWORD`. استخدم اسم مستخدم مناسباً وكلمة مرور فريدة لا تقل عن 16 حرفاً. لا تضع كلمة المرور في GitHub.
-4. راجع الخطة قبل الإنشاء: الـBlueprint يختار خطة Starter وقرصاً دائماً بسعة 1 GB لأن قاعدة SQLite يجب أن تبقى محفوظة بعد إعادة التشغيل والنشر. الأقراص الدائمة على Render تتطلب خطة مدفوعة.
-5. بعد اكتمال النشر، افتح عنوان `onrender.com` الذي يعطيه Render. المتجر ولوحة الإدارة سيعملان من النطاق نفسه، وتبقى نقطة الفحص `/api/health`.
-
-يحتوي Render Blueprint على Node.js 24.21.0، وربط `0.0.0.0`، و`NODE_ENV=production`، وحفظ قاعدة البيانات في `/var/data`. يستخدم HTTPS الذي يقدمه Render لتفعيل Cookie الجلسة الآمنة. نشر التحديثات يتم من مستودع GitHub عند ربطه بالخدمة. لا تشغّل أكثر من نسخة خادم مستقلة على SQLite نفسها؛ قاعدة البيانات الحالية مناسبة لخدمة واحدة بقرص دائم.
-
-هذا التنفيذ يستخدم SQLite على خادم واحد ذي قرص دائم؛ لا تشغّل عدة نسخ مستقلة من الخادم بملفات قواعد بيانات مختلفة. نقلها لاحقاً إلى PostgreSQL ممكن لكنه يتطلب إعداد قاعدة وخط نشر مناسبين. رفع الصور الحالي يبقي بيانات الصور مع المنتج؛ لخزن صور إنتاجي واسع النطاق، أضف Object Storage.
-
----
-جميع الحقوق محفوظة © 2026 **حلواني تاج الخليج** | Taj El Khalig Sweets
+© 2026 Taj El Khalig Sweets
