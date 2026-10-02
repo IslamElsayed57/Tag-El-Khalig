@@ -86,7 +86,7 @@ function unb64(value) { const s=String(value).replaceAll('-','+').replaceAll('_'
 async function digest(value) { return b64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))); }
 async function hashPassword(password, salt = crypto.getRandomValues(new Uint8Array(16))) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const result = await crypto.subtle.deriveBits({name:'PBKDF2', salt, iterations:210000, hash:'SHA-256'}, key, 256);
+  const result = await crypto.subtle.deriveBits({name:'PBKDF2', salt, iterations:10000, hash:'SHA-256'}, key, 256);
   return `${b64(salt)}:${b64(result)}`;
 }
 async function verifyPassword(password, stored) {
