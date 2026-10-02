@@ -1,0 +1,13 @@
+{
+  "name": "taj-el-khalig-sweets",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
+  "scripts": {
+    "start": "node server/server.mjs",
+    "check": "node --check server/server.mjs && node --check assets/js/api.js && node --check assets/js/cart.js && node --check assets/js/storefront.js && node --check assets/js/i18n.js && node --check assets/js/theme.js && node --check admin/js/admin.js && node --check admin/js/accounts.js && node --check admin/js/branches.js && node --check admin/js/customers.js && node --check admin/js/orders.js && node --check admin/js/products.js && node --check admin/js/reports.js"
+  }
+}
