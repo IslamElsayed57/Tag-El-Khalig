@@ -53,25 +53,32 @@ async function ensureSchema(db) {
 
 async function seed(env) {
   const db = env.DB;
-  const initialized=await db.prepare('SELECT id FROM settings WHERE id=1').first();
-  if(!initialized){
-    const statements=[
-      ...DEFAULT_CATEGORIES.map(x=>db.prepare('INSERT OR IGNORE INTO categories(id,active,data) VALUES(?,?,?)').bind(x.id,1,encode(x))),
-      ...DEFAULT_PRODUCTS.map(x=>db.prepare('INSERT OR IGNORE INTO products(id,category_id,active,data) VALUES(?,?,?,?)').bind(x.id,x.categoryId,1,encode(x))),
-      ...DEFAULT_BRANCHES.map(x=>db.prepare('INSERT OR IGNORE INTO branches(id,active,data) VALUES(?,?,?)').bind(x.id,1,encode(x))),
-      db.prepare('INSERT OR IGNORE INTO settings(id,data) VALUES(1,?)').bind(encode(DEFAULT_SETTINGS))
-    ];
-    await db.batch(statements);
-  }
-  const user = await db.prepare('SELECT id FROM users LIMIT 1').first();
-  if (!user && env.TAJ_ADMIN_USER && env.TAJ_ADMIN_PASSWORD) {
-    const password = String(env.TAJ_ADMIN_PASSWORD);
-    if (password.length >= 16) {
-      const passwordHash = await hashPassword(password);
-      await db.prepare('INSERT OR IGNORE INTO users(id,username,password_hash,name_ar,name_en,role,active) VALUES(?,?,?,?,?,?,1)')
-        .bind('user-admin', String(env.TAJ_ADMIN_USER), passwordHash, 'مدير النظام', 'Shop Administrator', 'admin').run();
+  try {
+    const initialized=await db.prepare('SELECT id FROM settings WHERE id=1').first();
+    if(!initialized){
+      const statements=[
+        ...DEFAULT_CATEGORIES.map(x=>db.prepare('INSERT OR IGNORE INTO categories(id,active,data) VALUES(?,?,?)').bind(x.id,1,encode(x))),
+        ...DEFAULT_PRODUCTS.map(x=>db.prepare('INSERT OR IGNORE INTO products(id,category_id,active,data) VALUES(?,?,?,?)').bind(x.id,x.categoryId,1,encode(x))),
+        ...DEFAULT_BRANCHES.map(x=>db.prepare('INSERT OR IGNORE INTO branches(id,active,data) VALUES(?,?,?)').bind(x.id,1,encode(x))),
+        db.prepare('INSERT OR IGNORE INTO settings(id,data) VALUES(1,?)').bind(encode(DEFAULT_SETTINGS))
+      ];
+      await db.batch(statements);
     }
-  }
+  } catch(e) { console.error('Taj seed data error:', e?.message || e); }
+  try {
+    const user = await db.prepare('SELECT id FROM users LIMIT 1').first();
+    if (!user && env.TAJ_ADMIN_USER && env.TAJ_ADMIN_PASSWORD) {
+      const password = String(env.TAJ_ADMIN_PASSWORD);
+      if (password.length >= 16) {
+        const passwordHash = await hashPassword(password);
+        await db.prepare('INSERT OR IGNORE INTO users(id,username,password_hash,name_ar,name_en,role,active) VALUES(?,?,?,?,?,?,1)')
+          .bind('user-admin', String(env.TAJ_ADMIN_USER), passwordHash, 'مدير النظام', 'Shop Administrator', 'admin').run();
+        console.log('Taj: admin user created successfully.');
+      } else {
+        console.warn('Taj: TAJ_ADMIN_PASSWORD must be at least 16 characters. Admin not created.');
+      }
+    }
+  } catch(e) { console.error('Taj admin user creation error:', e?.message || e); }
 }
 
 function b64(bytes) { return btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,''); }
