@@ -379,7 +379,7 @@ async function handle(req, res) {
     return json(res, 200, [...map.values()].filter(c=>!q || c.name.toLowerCase().includes(q) || c.phone.includes(q)));
   }
   if (path === '/api/reports' && method === 'GET') {
-    const conditions = ["status!='cancelled'"]; const values=[];
+    const conditions = ["status IN ('completed','ready')"]; const values=[];
     if (!isAdmin) { conditions.push('branch_id=?'); values.push(user.branchId||''); }
     else if (url.searchParams.get('branchId') && url.searchParams.get('branchId') !== 'all') { conditions.push('branch_id=?'); values.push(url.searchParams.get('branchId')); }
     const start=url.searchParams.get('startDate'); const end=url.searchParams.get('endDate');
@@ -392,7 +392,7 @@ async function handle(req, res) {
     const branches=parseList('branches'); const breakdown=branches.map(b=>({branchId:b.id,nameAr:b.nameAr,nameEn:b.nameEn,sales:0,ordersCount:0}));
     for(const order of orders){const stat=breakdown.find(x=>x.branchId===order.branchId);if(stat){stat.sales+=order.total;stat.ordersCount++;}}
     const totalSales=orders.reduce((sum,o)=>sum+o.total,0); const ordersCount=orders.length;
-    return json(res,200,{totalSales,ordersCount,averageOrderValue:ordersCount?Math.round(totalSales/ordersCount*100)/100:0,branchBreakdown:breakdown,calculationRule:'Cancelled orders excluded from sales totals.'});
+    return json(res,200,{totalSales,ordersCount,averageOrderValue:ordersCount?Math.round(totalSales/ordersCount*100)/100:0,branchBreakdown:breakdown,calculationRule:'Only Completed and Ready orders are counted. New and Cancelled orders are excluded from sales totals.'});
   }
 
   return json(res, 404, { error:'API route not found' });
