@@ -76,8 +76,16 @@ const Storefront = (function() {
       });
 
       document.querySelectorAll('.store-email-link').forEach(el => {
-        el.textContent = settings.contactEmail || 'info@tajelkhalig.com';
-        el.href = `mailto:${settings.contactEmail}`;
+        const email = settings.contactEmail || 'info@tajelkhalig.com';
+        // On contact cards the link wraps an icon + label + value, so only
+        // replace the value span; otherwise (plain footer link) replace the text.
+        const val = el.querySelector('.channel-val');
+        if (val) {
+          val.textContent = email;
+        } else {
+          el.textContent = email;
+        }
+        el.href = `mailto:${email}`;
       });
 
       // Update free delivery banners
@@ -297,13 +305,30 @@ const Storefront = (function() {
         </div>
       `).join('');
 
-      // Contact form submit simulation
+      // Contact form: opens WhatsApp with a formatted message to the shop's registered number
       const contactForm = document.getElementById('contactInquiryForm');
       if (contactForm && !contactForm.hasAttribute('data-bound')) {
         contactForm.setAttribute('data-bound', 'true');
         contactForm.addEventListener('submit', (e) => {
           e.preventDefault();
-          alert(isAr ? 'شكراً لتواصلكم معنا! تم استلام رسالتكم وسيتواصل معكم فريق خدمة العملاء قريباً.' : 'Thank you for reaching out! Your message was received and our team will get in touch shortly.');
+
+          const name = (document.getElementById('senderNameInput')?.value || '').trim();
+          const phone = (document.getElementById('senderPhoneInput')?.value || '').trim();
+          const message = (document.getElementById('senderMessageInput')?.value || '').trim();
+          if (!name || !phone || !message) return;
+
+          const cleanWhatsapp = (settings.whatsappNumber || '01099887766').replace(/[^0-9]/g, '');
+          const text = encodeURIComponent([
+            isAr ? '📨 رسالة جديدة من موقع حلواني تاج الخليج' : '📨 New message from Taj El Khalig website',
+            '',
+            `${isAr ? 'الاسم' : 'Name'}: ${name}`,
+            `${isAr ? 'رقم الهاتف' : 'Phone'}: ${phone}`,
+            '',
+            `${isAr ? 'الرسالة' : 'Message'}:`,
+            message
+          ].join('\n'));
+
+          window.open(`https://wa.me/2${cleanWhatsapp}?text=${text}`, '_blank');
           contactForm.reset();
         });
       }
