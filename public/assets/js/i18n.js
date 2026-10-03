@@ -557,7 +557,7 @@ const I18N = {
     langBtns.forEach(btn => {
       const label = btn.querySelector('.lang-label');
       if (label) {
-        label.textContent = isAr ? 'English' : 'عربي';
+        label.textContent = isAr ? 'Ar' : 'Eng';
       }
     });
   },
