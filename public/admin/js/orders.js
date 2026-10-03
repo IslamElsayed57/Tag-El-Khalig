@@ -111,10 +111,10 @@ const AdminOrders = (function() {
           <div class="toolbar-actions">
             ${currentUser && currentUser.role === 'admin' ? `
               <button type="button" class="btn btn-outline btn-sm" id="cleanupOrdersBtn" title="${isAr ? 'مسح الطلبات القديمة' : 'Delete Old Orders'}" style="color:var(--danger); border-color:var(--danger); padding-inline:0.5rem;">🗑️</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="exportOrdersCsvBtn">
+                📥 ${I18N.t('exportExcel')}
+              </button>
             ` : ''}
-            <button type="button" class="btn btn-secondary btn-sm" id="exportOrdersCsvBtn">
-              📥 ${I18N.t('exportExcel')}
-            </button>
           </div>
         </div>
 

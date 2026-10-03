@@ -82,7 +82,10 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
    - `functions/api/[[path]].js` — new `POST /orders/cleanup` route **below the auth gate with `isAdmin` 403**, validates `before` as `YYYY-MM-DD`, runs `DELETE FROM orders WHERE created_at<?` and `DELETE FROM events WHERE created_at<?` (epoch ms), returns `{ok, ordersDeleted, eventsDeleted}`.
    - `server/server.mjs` — parity route (orders only; the Node copy has no `events` table, returns `eventsDeleted:0`).
    - `public/assets/js/api.js` — `cleanupOrders(before)` added to both `localApi` (throws unless current user is admin) and `remoteApi`.
-   - `public/admin/js/orders.js` — "🗑️ مسح الطلبات القديمة" button rendered only when `role === 'admin'` next to the XLSX export; opens `openCleanupModal()` (date input + confirm in `runCleanup()` with an "export XLSX first" warning) and re-renders on success.
+   - `public/admin/js/orders.js` — **icon-only 🗑️ button** (compact `padding-inline:0.5rem`, `title` tooltip, red outline) rendered only when `role === 'admin'`, placed in `toolbar-actions` beside the export button; opens `openCleanupModal()` (date input + confirm in `runCleanup()` with an "export XLSX first" warning) and re-renders on success.
+6. **Orders toolbar: export button is admin-only with a shorter label**
+   - `public/assets/js/i18n.js` — `exportExcel` reworded to **"تصدير الطلبات" / "Export Orders"** (was "تصدير كشيت إكسيل (XLSX)" / "Export as Excel (XLSX)"). The key is used only by the orders page, so nothing else changed.
+   - `public/admin/js/orders.js` — the export button moved **inside the same `role === 'admin'` block** as the cleanup icon, so branch accounts see an empty actions area; `bindToolbarEvents` already null-guards both buttons, so no JS runs for them.
 
 ### Earlier sessions (cumulative)
 
