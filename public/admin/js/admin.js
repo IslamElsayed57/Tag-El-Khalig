@@ -90,6 +90,17 @@ const AdminApp = (function() {
     return pendingOrderAlerts.has(String(orderId));
   }
 
+  // Order events can arrive twice: instantly via BroadcastChannel from the
+  // same browser, then again from the /events poll. The first delivery wins.
+  const seenOrderEvents = new Set();
+
+  function isDuplicateOrderEvent(key) {
+    if (seenOrderEvents.has(key)) return true;
+    seenOrderEvents.add(key);
+    if (seenOrderEvents.size > 1000) seenOrderEvents.delete(seenOrderEvents.values().next().value);
+    return false;
+  }
+
   function addNotification(text) {
     unreadNotifications.unshift({
       id: Date.now(),
@@ -391,27 +402,27 @@ const AdminApp = (function() {
       // Listen to new orders placed on storefront
       window.addEventListener('taj_new_order', (e) => {
         const order = e.detail && e.detail.order;
-        if (order) {
-          addNotification(`طلب جديد #${order.id} من ${order.customerName} بقيمة ${order.total} ج.م`);
-          startOrderAlert(order.id);
-          if (activeTab === 'orders' && window.AdminOrders) {
-            AdminOrders.render();
-          }
-          if (activeTab === 'reports' && window.AdminReports) {
-            AdminReports.render();
-          }
+        if (!order) return;
+        if (isDuplicateOrderEvent('new:' + order.id)) return;
+        addNotification(`طلب جديد #${order.id} من ${order.customerName} بقيمة ${order.total} ج.م`);
+        startOrderAlert(order.id);
+        if (activeTab === 'orders' && window.AdminOrders) {
+          AdminOrders.render();
+        }
+        if (activeTab === 'reports' && window.AdminReports) {
+          AdminReports.render();
         }
       });
 
       // Listen to status changes (any action on an order stops its alert)
       window.addEventListener('taj_order_status_changed', (e) => {
         const order = e.detail && e.detail.order;
-        if (order) {
-          stopOrderAlert(order.id);
-          addNotification(`تم تحديث حالة الطلب #${order.id} إلى ${order.status}`);
-          if (activeTab === 'orders' && window.AdminOrders) {
-            AdminOrders.render();
-          }
+        if (!order) return;
+        if (isDuplicateOrderEvent('status:' + order.id + ':' + (order.updatedAt || order.status || ''))) return;
+        stopOrderAlert(order.id);
+        addNotification(`تم تحديث حالة الطلب #${order.id} إلى ${order.status}`);
+        if (activeTab === 'orders' && window.AdminOrders) {
+          AdminOrders.render();
         }
       });
 

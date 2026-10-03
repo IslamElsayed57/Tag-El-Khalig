@@ -1207,6 +1207,7 @@ const TajAPI = (function() {
   const apiBase = window.TAJ_CONFIG.apiBaseUrl.replace(/\/$/, '');
   let eventPollTimer = null;
   let eventPollGeneration = 0;
+  let eventVisibilityHandler = null;
   async function request(path, options = {}) {
     const response = await fetch(`${apiBase}${path}`, {
       credentials: 'same-origin',
@@ -1221,21 +1222,30 @@ const TajAPI = (function() {
     eventPollGeneration++;
     const generation = eventPollGeneration;
     if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
+    if (eventVisibilityHandler) { document.removeEventListener('visibilitychange', eventVisibilityHandler); eventVisibilityHandler = null; }
     if (!authenticated) return;
     let cursor = null;
+    let inFlight = false;
     const poll = async () => {
-      if (generation !== eventPollGeneration || document.visibilityState === 'hidden') return;
+      if (inFlight || generation !== eventPollGeneration || document.visibilityState === 'hidden') return;
+      inFlight = true;
       try {
         const suffix = cursor === null ? '' : `?since=${encodeURIComponent(cursor)}`;
         const result = await request(`/events${suffix}`);
+        if (generation !== eventPollGeneration) return;
         cursor = result.since;
         (result.events || []).forEach(item => {
           window.dispatchEvent(new CustomEvent(item.type, { detail:item.payload }));
         });
       } catch { /* Retry on the next interval; temporary network errors stay out of the UI. */ }
+      finally { inFlight = false; }
     };
     poll();
     eventPollTimer = setInterval(poll, 10000);
+    // Catch up immediately when the dashboard tab becomes visible again
+    // instead of waiting out the rest of the 10-second interval.
+    eventVisibilityHandler = () => { if (document.visibilityState === 'visible') poll(); };
+    document.addEventListener('visibilitychange', eventVisibilityHandler);
   }
   const query = values => {
     const params = new URLSearchParams();
@@ -1268,8 +1278,18 @@ const TajAPI = (function() {
     async updateSettings(data) { return request('/settings', {method:'PUT',body:JSON.stringify(data)}); },
     async getOrders(filters = {}, page = 1, limit = 20) { return request(`/orders${query({page,limit,branchId:filters.branchId,status:filters.status,search:filters.search,dateRange:filters.dateRange,startDate:filters.startDate,endDate:filters.endDate})}`); },
     async getOrderById(id) { return request(`/orders/${encodeURIComponent(id)}`); },
-    async createOrder(data) { return request('/orders', {method:'POST',body:JSON.stringify(data)}); },
-    async updateOrderStatus(id, status) { return request(`/orders/${encodeURIComponent(id)}/status`, {method:'PATCH',body:JSON.stringify({status})}); },
+    async createOrder(data) {
+      const order = await request('/orders', {method:'POST',body:JSON.stringify(data)});
+      // Same-browser instant delivery: notify admin tabs right away while the
+      // server event still travels to other devices through the /events poll.
+      notifyChange('taj_new_order', { order });
+      return order;
+    },
+    async updateOrderStatus(id, status) {
+      const order = await request(`/orders/${encodeURIComponent(id)}/status`, {method:'PATCH',body:JSON.stringify({status})});
+      notifyChange('taj_order_status_changed', { order, newStatus: status });
+      return order;
+    },
     async getCustomers(search = '') { return request(`/customers${query({search})}`); },
     async getReports(filters = {}) { return request(`/reports${query({branchId:filters.branchId,dateRange:filters.dateRange,startDate:filters.startDate,endDate:filters.endDate})}`); }
   };
