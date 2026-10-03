@@ -549,6 +549,156 @@ const TajAPI = (function() {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
+  // ---------------------------------------------------------------
+  // Minimal XLSX reader (no external libraries).
+  // Parses the ZIP container (stored + deflate entries) and returns
+  // the first worksheet as an array of rows of cell values.
+  // ---------------------------------------------------------------
+  async function unzipEntries(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+
+    let eocdPos = -1;
+    const scanStart = Math.max(0, bytes.length - 22 - 65535);
+    for (let i = bytes.length - 22; i >= scanStart; i--) {
+      if (view.getUint32(i, true) === 0x06054b50) { eocdPos = i; break; }
+    }
+    if (eocdPos < 0) throw new Error('ملف XLSX غير صالح');
+
+    const entryCount = view.getUint16(eocdPos + 10, true);
+    let ptr = view.getUint32(eocdPos + 16, true);
+    const entries = {};
+
+    for (let n = 0; n < entryCount; n++) {
+      if (view.getUint32(ptr, true) !== 0x02014b50) break;
+      const method = view.getUint16(ptr + 10, true);
+      const compSize = view.getUint32(ptr + 20, true);
+      const nameLen = view.getUint16(ptr + 28, true);
+      const extraLen = view.getUint16(ptr + 30, true);
+      const commentLen = view.getUint16(ptr + 32, true);
+      const localOff = view.getUint32(ptr + 42, true);
+      const name = new TextDecoder().decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
+      entries[name] = { method, compSize, localOff };
+      ptr += 46 + nameLen + extraLen + commentLen;
+    }
+
+    return { bytes, view, entries };
+  }
+
+  async function unzipEntry(z, name) {
+    const entry = z.entries[name];
+    if (!entry) return null;
+    const off = entry.localOff;
+    if (z.view.getUint32(off, true) !== 0x04034b50) throw new Error('ملف XLSX تالف');
+    const nameLen = z.view.getUint16(off + 26, true);
+    const extraLen = z.view.getUint16(off + 28, true);
+    const start = off + 30 + nameLen + extraLen;
+    const data = z.bytes.subarray(start, start + entry.compSize);
+
+    if (entry.method === 0) return data;
+    if (entry.method === 8) {
+      if (typeof DecompressionStream === 'undefined') {
+        throw new Error('متصفحك لا يدعم فك ضغط ملفات XLSX، جرّب متصفح أحدث');
+      }
+      const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    throw new Error('نوع ضغط غير مدعوم في ملف XLSX');
+  }
+
+  function parseXmlDoc(bytes) {
+    const doc = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) throw new Error('ملف XLSX تالف');
+    return doc;
+  }
+
+  function elementText(el) {
+    let text = '';
+    const ts = el.getElementsByTagName('t');
+    for (let i = 0; i < ts.length; i++) text += ts[i].textContent;
+    return text;
+  }
+
+  function cellAddress(ref) {
+    const m = /^([A-Z]+)(\d+)$/.exec(ref || '');
+    if (!m) return null;
+    let col = 0;
+    for (let i = 0; i < m[1].length; i++) col = col * 26 + (m[1].charCodeAt(i) - 64);
+    return { col: col - 1, row: parseInt(m[2], 10) - 1 };
+  }
+
+  async function parseXlsxBuffer(buffer) {
+    const z = await unzipEntries(buffer);
+
+    const shared = [];
+    const sharedXml = await unzipEntry(z, 'xl/sharedStrings.xml');
+    if (sharedXml) {
+      const doc = parseXmlDoc(sharedXml);
+      const sis = doc.getElementsByTagName('si');
+      for (let i = 0; i < sis.length; i++) shared.push(elementText(sis[i]));
+    }
+
+    let sheetPath = 'xl/worksheets/sheet1.xml';
+    const workbookXml = await unzipEntry(z, 'xl/workbook.xml');
+    const relsXml = await unzipEntry(z, 'xl/_rels/workbook.xml.rels');
+    if (workbookXml && relsXml) {
+      const sheet = parseXmlDoc(workbookXml).getElementsByTagName('sheet')[0];
+      const relsDoc = parseXmlDoc(relsXml);
+      const rid = sheet && (sheet.getAttribute('r:id') ||
+        sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'));
+      if (rid) {
+        const rels = relsDoc.getElementsByTagName('Relationship');
+        for (let i = 0; i < rels.length; i++) {
+          if (rels[i].getAttribute('Id') === rid) {
+            const target = (rels[i].getAttribute('Target') || '').replace(/^\/+/, '');
+            if (target) sheetPath = target.indexOf('xl/') === 0 ? target : 'xl/' + target;
+            break;
+          }
+        }
+      }
+    }
+
+    const sheetXml = await unzipEntry(z, sheetPath) || await unzipEntry(z, 'xl/worksheets/sheet1.xml');
+    if (!sheetXml) throw new Error('لم يتم العثور على ورقة بيانات داخل الملف');
+
+    const cells = parseXmlDoc(sheetXml).getElementsByTagName('c');
+    const rowsMap = {};
+    let maxRow = -1, maxCol = -1;
+
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      const pos = cellAddress(cell.getAttribute('r'));
+      if (!pos) continue;
+      const type = cell.getAttribute('t');
+      let value = '';
+      if (type === 'inlineStr') {
+        const is = cell.getElementsByTagName('is')[0];
+        value = is ? elementText(is) : '';
+      } else {
+        const v = cell.getElementsByTagName('v')[0];
+        const raw = v ? v.textContent : '';
+        if (type === 's') value = shared[parseInt(raw, 10)] || '';
+        else if (type === 'b') value = raw === '1' || raw === 'true';
+        else if (raw === '') value = '';
+        else if (type === 'str' || type === 'e') value = raw;
+        else value = isNaN(Number(raw)) ? raw : Number(raw);
+      }
+      if (!rowsMap[pos.row]) rowsMap[pos.row] = [];
+      rowsMap[pos.row][pos.col] = value;
+      if (pos.row > maxRow) maxRow = pos.row;
+      if (pos.col > maxCol) maxCol = pos.col;
+    }
+
+    const rows = [];
+    for (let r = 0; r <= maxRow; r++) {
+      const src = rowsMap[r] || [];
+      const dense = [];
+      for (let c = 0; c <= maxCol; c++) dense.push(src[c] === undefined ? '' : src[c]);
+      rows.push(dense);
+    }
+    return rows;
+  }
+
   // Public API methods (emulating async backend endpoints)
   const localApi = {
     // Current User & Authentication
@@ -994,7 +1144,11 @@ const TajAPI = (function() {
       };
     },
 
-    // XLSX Export utility methods
+    // XLSX Import / Export utility methods
+    async readXLSX(buffer) {
+      return parseXlsxBuffer(buffer);
+    },
+
     exportOrdersXLSX(orders) {
       const num = v => { const n = Number(v); return Number.isFinite(n) ? n : ''; };
       const headers = ['Order ID', 'Date', 'Customer Name', 'Phone', 'Type', 'Branch', 'Subtotal', 'Delivery Fee', 'Total', 'Status', 'Address', 'Notes'];
@@ -1041,18 +1195,10 @@ const TajAPI = (function() {
       downloadXlsx(`taj_products_${new Date().toISOString().slice(0, 10)}.xlsx`, 'المنتجات', rows);
     },
 
-    downloadProductsCSVTemplate() {
+    downloadProductsXLSXTemplate() {
       const headers = ['Category ID', 'Name Arabic', 'Name English', 'Regular Price', 'Discount Price', 'In Stock (1 or 0)', 'Active (1 or 0)', 'Description Arabic', 'Description English'];
-      const sampleRow = ['"cat-kunafa"', '"كنافة بالمانجو والكريمة"', '"Kunafa with Mango & Cream"', '240', '210', '1', '1', '"كنافة مقرمشة بطبقات المانجو الطازجة والكريمة الغنية"', '"Crispy kunafa layered with fresh mango and whipped cream"'];
-      const csvContent = '\uFEFF' + [headers.join(','), sampleRow.join(',')].join('\r\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'taj_products_template.csv');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const sampleRow = ['cat-kunafa', 'كنافة بالمانجو والكريمة', 'Kunafa with Mango & Cream', 240, 210, 1, 1, 'كنافة مقرمشة بطبقات المانجو الطازجة والكريمة الغنية', 'Crispy kunafa layered with fresh mango and whipped cream'];
+      downloadXlsx('taj_products_template.xlsx', 'المنتجات', [headers, sampleRow]);
     }
   };
 

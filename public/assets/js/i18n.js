@@ -190,9 +190,9 @@ const I18N = {
       // Categories & Products Tab
       addCategory: "إضافة قسم جديد",
       addProduct: "إضافة منتج جديد",
-      importCSV: "استيراد من إكسيل (CSV)",
+      importCSV: "استيراد من إكسيل (XLSX)",
       exportCSV: "تصدير المنتجات (XLSX)",
-      downloadTemplate: "تحميل نموذج CSV",
+      downloadTemplate: "تحميل نموذج XLSX",
       selectAll: "تحديد الكل",
       bulkDelete: "حذف المحدد",
       productName: "اسم المنتج",
@@ -435,9 +435,9 @@ const I18N = {
       // Categories & Products Tab
       addCategory: "Add New Category",
       addProduct: "Add New Product",
-      importCSV: "Import from CSV",
+      importCSV: "Import from XLSX",
       exportCSV: "Export Products (XLSX)",
-      downloadTemplate: "Download CSV Template",
+      downloadTemplate: "Download XLSX Template",
       selectAll: "Select All",
       bulkDelete: "Delete Selected",
       productName: "Product Name",

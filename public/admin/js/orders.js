@@ -1,6 +1,6 @@
 /**
  * Taj El Khalig Sweets - Admin Orders Controller
- * Summary cards, 20-items pagination, filters, status transition, UTF-8 CSV export, details modal
+ * Summary cards, 20-items pagination, filters, status transition, UTF-8 XLSX export, details modal
  */
 
 const AdminOrders = (function() {

@@ -1,6 +1,6 @@
 /**
  * Taj El Khalig Sweets - Admin Products & Categories Controller
- * CRUD for categories and products, CSV import/export, image upload preview, bulk delete.
+ * CRUD for categories and products, XLSX import/export, image upload preview, bulk delete.
  */
 
 const AdminProducts = (function() {
@@ -47,14 +47,14 @@ const AdminProducts = (function() {
             </div>
 
             <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
-              <input type="file" id="importCsvInput" accept=".csv" style="display:none;" onchange="AdminProducts.handleCSVImport(event)">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('importCsvInput').click()">
+              <input type="file" id="importXlsxInput" accept=".xlsx" style="display:none;" onchange="AdminProducts.handleImport(event)">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('importXlsxInput').click()">
                 📂 ${I18N.t('importCSV')}
               </button>
               <button type="button" class="btn btn-secondary btn-sm" onclick="TajAPI.exportProductsXLSX(AdminProducts.allProdsCache)">
                 📤 ${I18N.t('exportCSV')}
               </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="TajAPI.downloadProductsCSVTemplate()">
+              <button type="button" class="btn btn-outline btn-sm" onclick="TajAPI.downloadProductsXLSXTemplate()">
                 📄 ${I18N.t('downloadTemplate')}
               </button>
             </div>
@@ -506,61 +506,51 @@ const AdminProducts = (function() {
       }
     },
 
-    // CSV Import Parser
-    handleCSVImport(event) {
+    // XLSX Import Parser
+    async handleImport(event) {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const content = e.target.result;
-          const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
-          if (lines.length <= 1) {
-            alert('الملف فارغ أو لا يحتوي على بيانات منتجات');
-            return;
-          }
-
-          let importedCount = 0;
-          const categories = await TajAPI.getCategories();
-          const defaultCatId = categories[0] ? categories[0].id : 'cat-oriental';
-
-          // Skip header line
-          for (let i = 1; i < lines.length; i++) {
-            const raw = lines[i];
-            // Simple CSV line parser handling quotes
-            const cols = raw.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || raw.split(',');
-            if (cols.length >= 3) {
-              const cleanCols = cols.map(c => c.replace(/^"|"$/g, '').trim());
-              const catId = cleanCols[0] || defaultCatId;
-              const nameAr = cleanCols[1] || 'منتج مستورد';
-              const nameEn = cleanCols[2] || 'Imported Product';
-              const regularPrice = parseFloat(cleanCols[3]) || 150;
-              const discountPrice = cleanCols[4] ? parseFloat(cleanCols[4]) : null;
-
-              await TajAPI.createProduct({
-                categoryId: catId,
-                nameAr,
-                nameEn,
-                regularPrice,
-                discountPrice,
-                descAr: cleanCols[7] || '',
-                descEn: cleanCols[8] || '',
-                image: 'assets/images/kunafa_plate.jpg',
-                inStock: cleanCols[5] !== '0',
-                active: cleanCols[6] !== '0'
-              });
-              importedCount++;
-            }
-          }
-
-          alert(`تم استيراد ${importedCount} منتج بنجاح وتحديثها في المتجر.`);
-          AdminProducts.render();
-        } catch (err) {
-          alert('خطأ أثناء قراءة ملف CSV: ' + err.message);
+      try {
+        const rows = await TajAPI.readXLSX(await file.arrayBuffer());
+        const dataRows = rows.slice(1).filter(r => r.slice(0, 3).some(v => String(v).trim() !== ''));
+        if (!dataRows.length) {
+          alert('الملف فارغ أو لا يحتوي على بيانات منتجات');
+          return;
         }
-      };
-      reader.readAsText(file, 'UTF-8');
+
+        const categories = await TajAPI.getCategories();
+        const defaultCatId = categories[0] ? categories[0].id : 'cat-oriental';
+
+        let importedCount = 0;
+        for (const row of dataRows) {
+          const catId = String(row[0] || '').trim() || defaultCatId;
+          const nameAr = String(row[1] || '').trim() || 'منتج مستورد';
+          const nameEn = String(row[2] || '').trim() || 'Imported Product';
+          const regularPrice = parseFloat(row[3]) || 150;
+          const discountPrice = (row[4] === '' || row[4] == null) ? null : parseFloat(row[4]);
+
+          await TajAPI.createProduct({
+            categoryId: catId,
+            nameAr,
+            nameEn,
+            regularPrice,
+            discountPrice,
+            descAr: String(row[7] || ''),
+            descEn: String(row[8] || ''),
+            image: 'assets/images/kunafa_plate.jpg',
+            inStock: String(row[5]) !== '0',
+            active: String(row[6]) !== '0'
+          });
+          importedCount++;
+        }
+
+        alert(`تم استيراد ${importedCount} منتج بنجاح وتحديثها في المتجر.`);
+        AdminProducts.render();
+      } catch (err) {
+        alert('خطأ أثناء قراءة ملف XLSX: ' + err.message);
+      }
+      event.target.value = '';
     }
   };
 })();
