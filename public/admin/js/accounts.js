@@ -37,19 +37,11 @@ const AdminAccounts = (function() {
         </div>
 
         ${window.TAJ_CONFIG?.mode === 'remote' ? `
-          <form id="createStaffAccountForm" class="admin-table-container" style="padding:1.25rem; margin-bottom:1.25rem;">
-            <h3 style="margin-bottom:1rem;">إنشاء حساب دخول جديد</h3>
-            <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem;">
-              <label>اسم المستخدم<input name="username" required autocomplete="off"></label>
-              <label>الاسم بالعربية<input name="nameAr" required></label>
-              <label>الاسم بالإنجليزية<input name="nameEn" required></label>
-              <label>كلمة مرور مؤقتة (12 حرفًا على الأقل)<input name="password" type="password" minlength="12" required autocomplete="new-password"></label>
-              <label>نوع الحساب<select name="role"><option value="branch">Branch</option><option value="admin">Admin</option></select></label>
-              <label id="staffBranchField">الفرع<select name="branchId" required>${branches.filter(b=>b.active).map(b=>`<option value="${b.id}">${isAr?b.nameAr:b.nameEn}</option>`).join('')}</select></label>
-            </div>
-            <p id="staffAccountMessage" role="status" style="margin:.75rem 0;"></p>
-            <button type="submit" class="btn btn-primary">إنشاء الحساب</button>
-          </form>
+          <div style="margin-bottom:1.25rem;">
+            <button type="button" class="btn btn-primary" onclick="AdminAccounts.openUserModal()">
+              ➕ إضافة مستخدم جديد
+            </button>
+          </div>
         ` : ''}
 
         <div class="admin-table-container">
@@ -99,31 +91,95 @@ const AdminAccounts = (function() {
           </div>
         </div>
       `;
-      const accountForm = document.getElementById('createStaffAccountForm');
-      if (accountForm) {
-        const role = accountForm.elements.role;
-        const branchField = document.getElementById('staffBranchField');
-        const updateBranchRequirement = () => {
-          branchField.hidden = role.value !== 'branch';
-          accountForm.elements.branchId.required = role.value === 'branch';
-        };
-        role.addEventListener('change', updateBranchRequirement);
-        updateBranchRequirement();
-        accountForm.addEventListener('submit', async event => {
-          event.preventDefault();
-          const button = accountForm.querySelector('button[type="submit"]');
-          const message = document.getElementById('staffAccountMessage');
-          button.disabled = true;
-          const data = Object.fromEntries(new FormData(accountForm));
-          try {
-            await TajAPI.createUser(data);
-            message.textContent = 'تم إنشاء الحساب. سلّم كلمة المرور المؤقتة للموظف بأمان.';
-            await this.render();
-          } catch (error) {
-            message.textContent = error.message;
-            button.disabled = false;
-          }
-        });
+    },
+    async openUserModal() {
+      const isAr = I18N.currentLang === 'ar';
+      const branches = await TajAPI.getBranches();
+
+      let modal = document.getElementById('adminUserModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'adminUserModal';
+        modal.className = 'admin-modal-overlay';
+        document.body.appendChild(modal);
+      }
+
+      modal.innerHTML = `
+        <div class="admin-modal-box">
+          <div class="modal-header-admin">
+            <h3 style="font-weight:900; font-size:1.25rem; color:var(--admin-primary);">إضافة مستخدم جديد</h3>
+            <button type="button" class="drawer-close-btn" onclick="document.getElementById('adminUserModal').classList.remove('active')">✕</button>
+          </div>
+
+          <form id="createStaffAccountForm" onsubmit="AdminAccounts.saveUserForm(event)">
+            <div class="modal-body-admin">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                <div class="form-group">
+                  <label class="form-label">اسم المستخدم <span class="required-star">*</span></label>
+                  <input type="text" class="form-control" name="username" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">الاسم بالعربية <span class="required-star">*</span></label>
+                  <input type="text" class="form-control" name="nameAr" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">الاسم بالإنجليزية <span class="required-star">*</span></label>
+                  <input type="text" class="form-control" name="nameEn" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">كلمة مرور مؤقتة (12 حرفًا على الأقل) <span class="required-star">*</span></label>
+                  <input type="password" class="form-control" name="password" minlength="12" required autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">نوع الحساب</label>
+                  <select class="form-control" name="role">
+                    <option value="branch">Branch</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div class="form-group" id="staffBranchField">
+                  <label class="form-label">الفرع <span class="required-star">*</span></label>
+                  <select class="form-control" name="branchId" required>${branches.filter(b=>b.active).map(b=>`<option value="${b.id}">${isAr?b.nameAr:b.nameEn}</option>`).join('')}</select>
+                </div>
+              </div>
+              <p id="staffAccountMessage" role="status" style="margin:.75rem 0; min-height:1.2rem; color:var(--danger);"></p>
+            </div>
+
+            <div class="modal-footer-admin">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('adminUserModal').classList.remove('active')">إلغاء</button>
+              <button type="submit" class="btn btn-primary">حفظ</button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      modal.classList.add('active');
+
+      const form = document.getElementById('createStaffAccountForm');
+      const role = form.elements.role;
+      const branchField = document.getElementById('staffBranchField');
+      const updateBranchRequirement = () => {
+        branchField.style.display = role.value === 'branch' ? '' : 'none';
+        form.elements.branchId.required = role.value === 'branch';
+      };
+      role.addEventListener('change', updateBranchRequirement);
+      updateBranchRequirement();
+    },
+    async saveUserForm(event) {
+      event.preventDefault();
+      const form = event.target;
+      const button = form.querySelector('button[type="submit"]');
+      const message = document.getElementById('staffAccountMessage');
+      button.disabled = true;
+      message.textContent = '';
+      const data = Object.fromEntries(new FormData(form));
+      try {
+        await TajAPI.createUser(data);
+        document.getElementById('adminUserModal').classList.remove('active');
+        await this.render();
+      } catch (error) {
+        message.textContent = error.message;
+        button.disabled = false;
       }
     },
     async setActive(id, active) {
