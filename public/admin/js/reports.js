@@ -119,7 +119,7 @@ const AdminReports = (function() {
                       <td>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                           <div style="flex-grow:1; height:8px; background:var(--admin-border); border-radius:4px; overflow:hidden;">
-                            <div style="width:${percent}%; height:100%; background:var(--admin-primary);"></div>
+                            <div data-bar-width="${percent}" style="width:0%; height:100%; background:var(--admin-primary); transition:width 0.8s ease;"></div>
                           </div>
                           <span style="font-size:0.85rem; font-weight:700;">${percent}%</span>
                         </div>
@@ -134,6 +134,10 @@ const AdminReports = (function() {
       `;
 
       this.bindFilterEvents();
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.querySelectorAll('[data-bar-width]').forEach(el => { el.style.width = el.dataset.barWidth + '%'; });
+      }));
     },
 
     bindFilterEvents() {

@@ -96,7 +96,7 @@ const AdminCustomers = (function() {
         <div class="admin-modal-box">
           <div class="modal-header-admin">
             <div>
-              <h3 style="font-weight:900; font-size:1.3rem; color:var(--admin-primary);">سجل طلبات العميل: ${customer.name}</h3>
+              <h3 style="font-weight:900; font-size:1.3rem; color:var(--admin-primary);">${isAr ? 'سجل طلبات العميل' : 'Customer Order History'}: ${customer.name}</h3>
               <div dir="ltr" style="font-size:0.9rem; color:var(--admin-text-muted); font-family:monospace;">${customer.phone}</div>
             </div>
             <button type="button" class="drawer-close-btn" onclick="document.getElementById('adminCustomerHistoryModal').classList.remove('active')">✕</button>
@@ -114,12 +114,12 @@ const AdminCustomers = (function() {
               </div>
             </div>
 
-            <h4 style="font-weight:800; margin-bottom:0.75rem;">الطلبات السابقة:</h4>
+            <h4 style="font-weight:800; margin-bottom:0.75rem;">${isAr ? 'الطلبات السابقة:' : 'Previous Orders:'}</h4>
             <div style="display:flex; flex-direction:column; gap:0.75rem;">
               ${customer.orders.map(order => `
                 <div style="border:1px solid var(--admin-border); border-radius:var(--radius-md); padding:0.85rem; display:flex; justify-content:space-between; align-items:center;">
                   <div>
-                    <div style="font-weight:800;">طلب #${order.id} - ${order.type === 'delivery' ? '🛵 توصيل' : '🏬 استلام'}</div>
+                    <div style="font-weight:800;">${isAr ? 'طلب' : 'Order'} #${order.id} - ${order.type === 'delivery' ? (isAr ? '🛵 توصيل' : '🛵 Delivery') : (isAr ? '🏬 استلام' : '🏬 Pickup')}</div>
                     <div style="font-size:0.8rem; color:var(--admin-text-muted);">${new Date(order.createdAt).toLocaleString(isAr ? 'ar-EG' : 'en-US')} - ${isAr ? order.branchNameAr : order.branchNameEn}</div>
                   </div>
                   <div style="text-align:end;">
