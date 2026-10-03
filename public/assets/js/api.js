@@ -1116,9 +1116,15 @@ const TajAPI = (function() {
       const ordersCount = confirmedOrders.length;
       const averageOrderValue = ordersCount > 0 ? (totalSales / ordersCount) : 0;
 
-      // Group by branch
+      // Group by branch (respect branch-user scope and selected branch filter)
+      const isBranchUser = currentUser && currentUser.role === 'branch' && currentUser.branchId;
+      const visibleBranches = isBranchUser
+        ? branches.filter(b => b.id === currentUser.branchId)
+        : (filters.branchId && filters.branchId !== 'all')
+          ? branches.filter(b => b.id === filters.branchId)
+          : branches;
       const branchStats = {};
-      branches.forEach(b => {
+      visibleBranches.forEach(b => {
         branchStats[b.id] = {
           branchId: b.id,
           nameAr: b.nameAr,

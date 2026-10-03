@@ -389,7 +389,7 @@ async function handle(req, res) {
     else if (range==='custom' && start) { conditions.push('created_at>=?'); values.push(new Date(start).toISOString()); }
     if (range==='custom' && end) { conditions.push('created_at<=?'); values.push(new Date(`${end}T23:59:59.999`).toISOString()); }
     const orders=db.prepare(`SELECT data FROM orders WHERE ${conditions.join(' AND ')}`).all(...values).map(r=>decode(r.data));
-    const branches=parseList('branches'); const breakdown=branches.map(b=>({branchId:b.id,nameAr:b.nameAr,nameEn:b.nameEn,sales:0,ordersCount:0}));
+    const branches=parseList('branches'); const branchFilter=(!isAdmin?String(user.branchId||''):(url.searchParams.get('branchId')&&url.searchParams.get('branchId')!=='all'?url.searchParams.get('branchId'):null)); const breakdown=branches.filter(b=>branchFilter===null||b.id===branchFilter).map(b=>({branchId:b.id,nameAr:b.nameAr,nameEn:b.nameEn,sales:0,ordersCount:0}));
     for(const order of orders){const stat=breakdown.find(x=>x.branchId===order.branchId);if(stat){stat.sales+=order.total;stat.ordersCount++;}}
     const totalSales=orders.reduce((sum,o)=>sum+o.total,0); const ordersCount=orders.length;
     return json(res,200,{totalSales,ordersCount,averageOrderValue:ordersCount?Math.round(totalSales/ordersCount*100)/100:0,branchBreakdown:breakdown,calculationRule:'Only Completed and Ready orders are counted. New and Cancelled orders are excluded from sales totals.'});
