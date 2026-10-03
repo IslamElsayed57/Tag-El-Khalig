@@ -319,8 +319,6 @@ const Storefront = (function() {
 
           const cleanWhatsapp = (settings.whatsappNumber || '01099887766').replace(/[^0-9]/g, '');
           const text = encodeURIComponent([
-            isAr ? '📨 رسالة جديدة من موقع حلواني تاج الخليج' : '📨 New message from Taj El Khalig website',
-            '',
             `${isAr ? 'الاسم' : 'Name'}: ${name}`,
             `${isAr ? 'رقم الهاتف' : 'Phone'}: ${phone}`,
             '',
