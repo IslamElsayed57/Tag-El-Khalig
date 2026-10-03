@@ -229,6 +229,15 @@ export async function onRequest(context) {
       const range=url.searchParams.get('dateRange'),today=new Date().toISOString().slice(0,10);if(range==='today'){clauses.push('created_at>=?');values.push(`${today}T00:00:00.000Z`);}if(range==='yesterday'){const d=new Date();d.setUTCDate(d.getUTCDate()-1);clauses.push('created_at>=? AND created_at<?');values.push(`${d.toISOString().slice(0,10)}T00:00:00.000Z`,`${today}T00:00:00.000Z`);}if(range==='last7'){clauses.push('created_at>=?');values.push(new Date(Date.now()-7*86400000).toISOString());}if(range==='thisMonth'){clauses.push('created_at>=?');values.push(`${today.slice(0,7)}-01T00:00:00.000Z`);}
       const where=clauses.length?`WHERE ${clauses.join(' AND ')}`:'',count=await db.prepare(`SELECT COUNT(*) AS n FROM orders ${where}`).bind(...values).first(),rows=await db.prepare(`SELECT data FROM orders ${where} ORDER BY id DESC LIMIT ? OFFSET ?`).bind(...values,limit,(page-1)*limit).all();return json({orders:rows.results.map(r=>decode(r.data)),totalCount:count.n,totalPages:Math.ceil(count.n/limit)||1,currentPage:page,limit});
     }
+    if(path==='/orders/cleanup'&&method==='POST'){
+      if(!isAdmin)return json({error:'Administrator permission required'},403);
+      const input=await body(request),before=String(input.before||'');
+      const cutoffMs=Date.parse(`${before}T00:00:00.000Z`);
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(before)||isNaN(cutoffMs))return json({error:'Valid cutoff date is required'},400);
+      const ordersDeleted=(await db.prepare('DELETE FROM orders WHERE created_at<?').bind(before).run()).meta.changes||0;
+      const eventsDeleted=(await db.prepare('DELETE FROM events WHERE created_at<?').bind(cutoffMs).run()).meta.changes||0;
+      return json({ok:true,ordersDeleted,eventsDeleted});
+    }
     const orderMatch=path.match(/^\/orders\/([^/]+)$/);
     if(orderMatch&&method==='GET'){const row=await db.prepare('SELECT * FROM orders WHERE id=?').bind(Number(orderMatch[1])).first();if(!row||(!isAdmin&&row.branch_id!==user.branchId))return json({error:'Order not found'},404);return json(decode(row.data));}
     const statusMatch=path.match(/^\/orders\/([^/]+)\/status$/);

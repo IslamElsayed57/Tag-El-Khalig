@@ -109,6 +109,11 @@ const AdminOrders = (function() {
           </div>
 
           <div class="toolbar-actions">
+            ${currentUser && currentUser.role === 'admin' ? `
+              <button type="button" class="btn btn-outline btn-sm" id="cleanupOrdersBtn" style="color:var(--danger); border-color:var(--danger);">
+                🗑️ ${isAr ? 'مسح الطلبات القديمة' : 'Delete Old Orders'}
+              </button>
+            ` : ''}
             <button type="button" class="btn btn-secondary btn-sm" id="exportOrdersCsvBtn">
               📥 ${I18N.t('exportExcel')}
             </button>
@@ -235,6 +240,11 @@ const AdminOrders = (function() {
           TajAPI.exportOrdersXLSX(allOrders);
         });
       }
+
+      const cleanupBtn = document.getElementById('cleanupOrdersBtn');
+      if (cleanupBtn) {
+        cleanupBtn.addEventListener('click', () => this.openCleanupModal());
+      }
     },
 
     goToPage(page) {
@@ -245,6 +255,61 @@ const AdminOrders = (function() {
     stopAlert(orderId) {
       AdminApp.stopOrderAlert(orderId);
       this.render();
+    },
+
+    openCleanupModal() {
+      const currentUser = AdminApp.getCurrentUser();
+      if (!currentUser || currentUser.role !== 'admin') return;
+      const isAr = I18N.currentLang === 'ar';
+      let modal = document.getElementById('adminOrdersCleanupModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'adminOrdersCleanupModal';
+        modal.className = 'admin-modal-overlay';
+        document.body.appendChild(modal);
+      }
+      modal.innerHTML = `
+        <div class="admin-modal-box">
+          <div class="modal-header-admin">
+            <div>
+              <h3 style="font-weight:900; font-size:1.2rem; color:var(--admin-primary);">${isAr ? 'مسح الطلبات القديمة' : 'Delete Old Orders'}</h3>
+            </div>
+            <button type="button" class="drawer-close-btn" onclick="document.getElementById('adminOrdersCleanupModal').classList.remove('active')">✕</button>
+          </div>
+          <div class="modal-body-admin">
+            <p style="margin-bottom:0.75rem; color:var(--admin-text-muted);">${isAr ? 'هتتمسح كل الطلبات بتاريخ أقدم من التاريخ المحدد، ومعها أحداث المزامنة الأقدم منه. يُنصح بتصدير نسخة XLSX قبل المسح.' : 'Every order older than the selected date will be deleted, along with sync events older than it. Exporting an XLSX copy first is recommended.'}</p>
+            <input type="date" id="cleanupCutoffDate" class="form-control" style="width:100%;" max="${new Date().toISOString().slice(0, 10)}">
+          </div>
+          <div class="modal-footer-admin">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('adminOrdersCleanupModal').classList.remove('active')">${I18N.t('close')}</button>
+            <button type="button" class="btn btn-primary" onclick="AdminOrders.runCleanup()" style="background:var(--danger); border-color:var(--danger);">🗑️ ${isAr ? 'تأكيد المسح' : 'Confirm Delete'}</button>
+          </div>
+        </div>
+      `;
+      modal.classList.add('active');
+    },
+
+    async runCleanup() {
+      const isAr = I18N.currentLang === 'ar';
+      const input = document.getElementById('cleanupCutoffDate');
+      const before = input ? input.value : '';
+      if (!before) {
+        alert(isAr ? 'اختر تاريخ الأول.' : 'Choose a date first.');
+        return;
+      }
+      const confirmMsg = isAr
+        ? `هل أنت متأكد من مسح كل الطلبات أقدم من ${before}؟ لا يمكن التراجع عن العملية، وينصح بتصدير XLSX أولاً.`
+        : `Are you sure you want to delete every order older than ${before}? This cannot be undone; exporting XLSX first is recommended.`;
+      if (!confirm(confirmMsg)) return;
+      try {
+        const result = await TajAPI.cleanupOrders(before);
+        const modal = document.getElementById('adminOrdersCleanupModal');
+        if (modal) modal.classList.remove('active');
+        alert(isAr ? `تم مسح ${result.ordersDeleted} طلب بنجاح.` : `Deleted ${result.ordersDeleted} orders successfully.`);
+        this.render();
+      } catch (err) {
+        alert((isAr ? 'تعذر تنفيذ المسح: ' : 'Cleanup failed: ') + (err && err.message ? err.message : err));
+      }
     },
 
     getStatusLabel(status) {

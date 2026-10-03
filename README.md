@@ -54,6 +54,12 @@ Create a local `.dev.vars` file with `TAJ_ADMIN_USER` and `TAJ_ADMIN_PASSWORD` f
    - `public/admin/js/reports.js` — the "نسبة المساهمة" bars now start at `width:0%` with `transition:width 0.8s ease`; the target lives in `data-bar-width` and a double `requestAnimationFrame` after render sets the final width, so bars animate 0 → target on every render/filter change. Labels and all other report markup unchanged.
 4. **Customer order-history modal i18n**
    - `public/admin/js/customers.js` — three hardcoded Arabic strings in the history modal now follow the file's `isAr ? 'عربي' : 'English'` pattern: modal title (`سجل طلبات العميل` / `Customer Order History`), section heading (`الطلبات السابقة:` / `Previous Orders:`), and order line (`طلب #N - 🛵 توصيل/🏬 استلام` / `Order #N - 🛵 Delivery/🏬 Pickup`). The Arabic strings are byte-identical to before, so Arabic mode is untouched.
+5. **Old-orders cleanup feature (admin-only)**
+   - Purpose: keep D1 storage under the 500 MB free-plan cap by deleting orders older than a chosen date (product images stay in D1 by choice; `events` rows older than 7 days are already auto-purged by `addEvent`).
+   - `functions/api/[[path]].js` — new `POST /orders/cleanup` route **below the auth gate with `isAdmin` 403**, validates `before` as `YYYY-MM-DD`, runs `DELETE FROM orders WHERE created_at<?` and `DELETE FROM events WHERE created_at<?` (epoch ms), returns `{ok, ordersDeleted, eventsDeleted}`.
+   - `server/server.mjs` — parity route (orders only; the Node copy has no `events` table, returns `eventsDeleted:0`).
+   - `public/assets/js/api.js` — `cleanupOrders(before)` added to both `localApi` (throws unless current user is admin) and `remoteApi`.
+   - `public/admin/js/orders.js` — "🗑️ مسح الطلبات القديمة" button rendered only when `role === 'admin'` next to the XLSX export; opens `openCleanupModal()` (date input + confirm in `runCleanup()` with an "export XLSX first" warning) and re-renders on success.
 
 ### Earlier sessions (cumulative)
 

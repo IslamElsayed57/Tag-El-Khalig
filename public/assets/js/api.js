@@ -1025,6 +1025,16 @@ const TajAPI = (function() {
       return orders[index];
     },
 
+    async cleanupOrders(before) {
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser || currentUser.role !== 'admin') throw new Error('Administrator permission required');
+      const orders = getStored(STORAGE_KEYS.ORDERS, defaultOrders);
+      const kept = orders.filter(o => String(o.createdAt) >= String(before));
+      const ordersDeleted = orders.length - kept.length;
+      setStored(STORAGE_KEYS.ORDERS, kept);
+      return { ok: true, ordersDeleted, eventsDeleted: 0 };
+    },
+
     // Customers cumulative aggregation
     async getCustomers(searchQuery = '') {
       const orders = getStored(STORAGE_KEYS.ORDERS, defaultOrders);
@@ -1295,6 +1305,9 @@ const TajAPI = (function() {
       const order = await request(`/orders/${encodeURIComponent(id)}/status`, {method:'PATCH',body:JSON.stringify({status})});
       notifyChange('taj_order_status_changed', { order, newStatus: status });
       return order;
+    },
+    async cleanupOrders(before) {
+      return request('/orders/cleanup', { method:'POST', body:JSON.stringify({ before }) });
     },
     async getCustomers(search = '') { return request(`/customers${query({search})}`); },
     async getReports(filters = {}) { return request(`/reports${query({branchId:filters.branchId,dateRange:filters.dateRange,startDate:filters.startDate,endDate:filters.endDate})}`); }

@@ -355,6 +355,15 @@ async function handle(req, res) {
     const rows = db.prepare(`SELECT data FROM orders ${where} ORDER BY id DESC LIMIT ? OFFSET ?`).all(...values, limit, (page-1)*limit).map(row=>decode(row.data));
     return json(res, 200, { orders:rows, totalCount:count, totalPages:Math.ceil(count/limit)||1, currentPage:page, limit });
   }
+
+  if (path === '/api/orders/cleanup' && method === 'POST') {
+    if (!requireAdmin()) return;
+    const input = await body(req);
+    const before = String(input.before || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) return json(res, 400, { error:'Valid cutoff date is required' });
+    const result = db.prepare('DELETE FROM orders WHERE created_at<?').run(before);
+    return json(res, 200, { ok:true, ordersDeleted:result.changes, eventsDeleted:0 });
+  }
   const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/status)?$/);
   if (orderMatch && method === 'GET') {
     const id = Number(orderMatch[1]); const row = db.prepare('SELECT * FROM orders WHERE id=?').get(id);
