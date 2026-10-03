@@ -9,13 +9,29 @@ const AdminApp = (function() {
   let isSoundEnabled = localStorage.getItem('taj_admin_sound') !== 'false';
   let unreadNotifications = [];
 
-  // Web Audio API Synthesizer for notifications
+  // Web Audio API Synthesizer for notifications.
+  // A single shared AudioContext is reused so repeating 1-second alerts
+  // never exhaust the browser's AudioContext limit.
+  let audioCtx = null;
+
+  function getAudioContext() {
+    try {
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextCtor) return null;
+      if (!audioCtx || audioCtx.state === 'closed') audioCtx = new AudioContextCtor();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    } catch (e) {
+      console.warn('Audio context error', e);
+      return null;
+    }
+  }
+
   function playNotificationChime() {
     if (!isSoundEnabled) return;
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
+      const ctx = getAudioContext();
+      if (!ctx) return;
 
       const playTone = (freq, start, duration) => {
         const osc = ctx.createOscillator();
@@ -37,6 +53,41 @@ const AdminApp = (function() {
     } catch (e) {
       console.warn('Audio playback error', e);
     }
+  }
+
+  // Repeating alerts for unhandled new orders: the chime plays every second
+  // until the order gets an action (status change) or is stopped manually
+  // from the orders table.
+  let pendingOrderAlerts = new Set();
+  let orderAlertTimer = null;
+
+  function ensureOrderAlertLoop() {
+    if (orderAlertTimer) return;
+    orderAlertTimer = setInterval(() => {
+      if (pendingOrderAlerts.size === 0) {
+        clearInterval(orderAlertTimer);
+        orderAlertTimer = null;
+        return;
+      }
+      playNotificationChime();
+    }, 1000);
+  }
+
+  function startOrderAlert(orderId) {
+    pendingOrderAlerts.add(String(orderId));
+    ensureOrderAlertLoop();
+  }
+
+  function stopOrderAlert(orderId) {
+    pendingOrderAlerts.delete(String(orderId));
+    if (pendingOrderAlerts.size === 0 && orderAlertTimer) {
+      clearInterval(orderAlertTimer);
+      orderAlertTimer = null;
+    }
+  }
+
+  function isOrderAlertActive(orderId) {
+    return pendingOrderAlerts.has(String(orderId));
   }
 
   function addNotification(text) {
@@ -97,6 +148,10 @@ const AdminApp = (function() {
     getCurrentUser() {
       return currentUser;
     },
+
+    startOrderAlert,
+    stopOrderAlert,
+    isOrderAlertActive,
 
     async switchUser(userId) {
       currentUser = await TajAPI.setCurrentUser(userId);
@@ -338,6 +393,7 @@ const AdminApp = (function() {
         const order = e.detail && e.detail.order;
         if (order) {
           addNotification(`طلب جديد #${order.id} من ${order.customerName} بقيمة ${order.total} ج.م`);
+          startOrderAlert(order.id);
           if (activeTab === 'orders' && window.AdminOrders) {
             AdminOrders.render();
           }
@@ -347,10 +403,11 @@ const AdminApp = (function() {
         }
       });
 
-      // Listen to status changes
+      // Listen to status changes (any action on an order stops its alert)
       window.addEventListener('taj_order_status_changed', (e) => {
         const order = e.detail && e.detail.order;
         if (order) {
+          stopOrderAlert(order.id);
           addNotification(`تم تحديث حالة الطلب #${order.id} إلى ${order.status}`);
           if (activeTab === 'orders' && window.AdminOrders) {
             AdminOrders.render();
