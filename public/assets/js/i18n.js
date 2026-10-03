@@ -287,7 +287,7 @@ const I18N = {
       dayMode: "Day Mode",
       nightMode: "Night Mode",
       langSwitch: "العربية",
-      sampleDataNotice: "Preview Sample Data",
+      sampleDataNotice: "The Sweetest Taste",
       viewDashboard: "Admin Dashboard",
       backToStore: "Back to Store",
       all: "All",

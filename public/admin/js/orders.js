@@ -159,9 +159,7 @@ const AdminOrders = (function() {
                     </td>
                     <td>
                       ${AdminApp.isOrderAlertActive(o.id) ? `
-                        <button type="button" class="btn btn-outline btn-sm" onclick="AdminOrders.stopAlert('${o.id}')" style="margin-inline-end:0.4rem; color:var(--admin-primary); font-weight:700;">
-                          🔕 ${I18N.t('stopAlert')}
-                        </button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="AdminOrders.stopAlert('${o.id}')" title="${I18N.t('stopAlert')}" style="margin-inline-end:0.4rem; color:var(--admin-primary); font-weight:700; padding-inline:0.5rem;">🔕</button>
                       ` : ''}
                       <button type="button" class="btn btn-outline btn-sm" onclick="AdminOrders.viewOrderDetails('${o.id}')">
                         👁️ ${I18N.t('orderDetails')}
