@@ -1,6 +1,6 @@
 /**
  * Taj El Khalig Sweets - Admin Reports & Analytics Controller
- * Date & branch filters, accounting rules (excludes cancelled orders), and print handler.
+ * Date & branch filters, accounting rules (counts Completed & Ready orders only), and print handler.
  */
 
 const AdminReports = (function() {

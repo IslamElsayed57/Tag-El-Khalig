@@ -240,7 +240,7 @@ const I18N = {
       
       // Reports Tab
       reportsTitle: "تقارير المبيعات والأداء",
-      reportRuleNotice: "قاعدة الحساب: يتم احتساب الطلبات المكتملة والجاهزة والجديدة فقط، ويتم استبعاد الطلبات الملغاة (Cancelled) تماماً من إجمالي المبيعات.",
+      reportRuleNotice: "قاعدة الحساب: يتم احتساب الطلبات المكتملة والجاهزة فقط، ويتم استبعاد الطلبات الجديدة (new) والملغاة (Cancelled) تماماً من إجمالي المبيعات.",
       totalSales: "إجمالي المبيعات",
       ordersCount: "عدد الطلبات المؤكدة",
       avgOrderValue: "متوسط قيمة الطلب",
@@ -486,7 +486,7 @@ const I18N = {
       
       // Reports Tab
       reportsTitle: "Sales & Performance Reports",
-      reportRuleNotice: "Calculation Rule: Only New, Ready, and Completed orders are calculated. Cancelled orders are excluded from total sales.",
+      reportRuleNotice: "Calculation Rule: Only Completed and Ready orders are counted. New and Cancelled orders are excluded from total sales.",
       totalSales: "Total Sales",
       ordersCount: "Confirmed Orders Count",
       avgOrderValue: "Average Order Value",

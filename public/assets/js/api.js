@@ -1110,8 +1110,8 @@ const TajAPI = (function() {
         }
       }
 
-      // EXCLUDE cancelled orders as strictly required by rule
-      const confirmedOrders = targetOrders.filter(o => o.status !== 'cancelled');
+      // Only Completed & Ready orders count - New & Cancelled are strictly excluded
+      const confirmedOrders = targetOrders.filter(o => o.status === 'completed' || o.status === 'ready');
       const totalSales = confirmedOrders.reduce((sum, o) => sum + o.total, 0);
       const ordersCount = confirmedOrders.length;
       const averageOrderValue = ordersCount > 0 ? (totalSales / ordersCount) : 0;
@@ -1140,7 +1140,7 @@ const TajAPI = (function() {
         ordersCount,
         averageOrderValue: Math.round(averageOrderValue * 100) / 100,
         branchBreakdown: Object.values(branchStats),
-        calculationRule: "يتم استبعاد الطلبات الملغاة (Cancelled) من إجمالي المبيعات وفقاً لمعايير المحاسبة والتقارير."
+        calculationRule: "يتم احتساب الطلبات المكتملة والجاهزة فقط، ويتم استبعاد الطلبات الجديدة (New) والملغاة (Cancelled) تماماً من إجمالي المبيعات."
       };
     },
 
