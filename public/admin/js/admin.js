@@ -177,10 +177,11 @@ const AdminApp = (function() {
       const roleBadge = document.getElementById('sidebarUserRole');
       const switcherSelect = document.getElementById('userSwitcherSelect');
 
-      if (nameEl) nameEl.textContent = currentUser.nameAr;
+      const displayName = I18N.currentLang === 'ar' ? currentUser.nameAr : (currentUser.nameEn || currentUser.nameAr);
+      if (nameEl) nameEl.textContent = displayName;
       if (roleBadge) {
         roleBadge.className = `user-role-badge role-${currentUser.role}`;
-        roleBadge.textContent = currentUser.role === 'admin' ? I18N.t('roleAdmin') : `${I18N.t('roleBranch')} (${currentUser.nameAr})`;
+        roleBadge.textContent = currentUser.role === 'admin' ? I18N.t('roleAdmin') : `${I18N.t('roleBranch')} (${displayName})`;
       }
 
       if (window.TAJ_CONFIG?.mode === 'remote') {
@@ -193,7 +194,8 @@ const AdminApp = (function() {
           logout.type = 'button';
           logout.id = 'adminLogoutBtn';
           logout.className = 'control-btn';
-          logout.textContent = 'تسجيل الخروج';
+          logout.setAttribute('data-i18n', 'logout');
+          logout.textContent = I18N.t('logout');
           logout.addEventListener('click', async () => { await TajAPI.logout(); location.reload(); });
           topbar.prepend(logout);
         }
@@ -393,6 +395,7 @@ const AdminApp = (function() {
       if (langBtn) {
         langBtn.addEventListener('click', () => {
           I18N.toggleLang();
+          this.renderUserBadge();
           this.switchTab(activeTab);
         });
       }

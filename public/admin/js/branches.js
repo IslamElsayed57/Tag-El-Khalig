@@ -30,7 +30,7 @@ const AdminBranches = (function() {
       container.innerHTML = `
         <!-- Branches Section -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-          <h3 style="font-weight:900; font-size:1.25rem; color:var(--admin-text);">قائمة الفروع المسجلة (${branches.length})</h3>
+          <h3 style="font-weight:900; font-size:1.25rem; color:var(--admin-text);">${isAr ? 'قائمة الفروع المسجلة' : 'Registered Branches'} (${branches.length})</h3>
           <button type="button" class="btn btn-primary btn-sm" onclick="AdminBranches.openBranchModal()">
             ➕ ${I18N.t('addBranch')}
           </button>
@@ -41,12 +41,12 @@ const AdminBranches = (function() {
             <table class="admin-table">
               <thead>
                 <tr>
-                  <th>اسم الفرع</th>
-                  <th>العنوان</th>
-                  <th>رقم الهاتف</th>
-                  <th>مدير الفرع</th>
-                  <th>خدمة التوصيل</th>
-                  <th>الحالة</th>
+                  <th>${isAr ? 'اسم الفرع' : 'Branch Name'}</th>
+                  <th>${isAr ? 'العنوان' : 'Address'}</th>
+                  <th>${isAr ? 'رقم الهاتف' : 'Phone Number'}</th>
+                  <th>${isAr ? 'مدير الفرع' : 'Branch Manager'}</th>
+                  <th>${isAr ? 'خدمة التوصيل' : 'Delivery Service'}</th>
+                  <th>${isAr ? 'الحالة' : 'Status'}</th>
                   <th>${I18N.t('actions')}</th>
                 </tr>
               </thead>
@@ -59,19 +59,19 @@ const AdminBranches = (function() {
                     <td>${(isAr ? b.managerAr : b.managerEn) || '—'}</td>
                     <td>
                       <span class="badge-status ${b.deliveryEligible ? 'completed' : 'cancelled'}">
-                        ${b.deliveryEligible ? 'متاح للتوصيل' : 'استلام فقط'}
+                        ${b.deliveryEligible ? (isAr ? 'متاح للتوصيل' : 'Delivery Available') : (isAr ? 'استلام فقط' : 'Pickup Only')}
                       </span>
                     </td>
                     <td>
                       <button type="button" class="badge-status ${b.active ? 'ready' : 'cancelled'}" onclick="AdminBranches.toggleActive('${b.id}', ${!b.active})">
-                        ${b.active ? 'نشط' : 'معطل'}
+                        ${b.active ? (isAr ? 'نشط' : 'Active') : (isAr ? 'معطل' : 'Disabled')}
                       </button>
                     </td>
                     <td>
                       <div style="display:flex; gap:0.4rem;">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="AdminBranches.openBranchModal('${b.id}')" title="تعديل">✏️</button>
-                        <a href="${b.mapUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" title="خرائط Google">🗺️</a>
-                        <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger); border-color:var(--danger);" onclick="AdminBranches.deleteBranch('${b.id}')" title="حذف">🗑️</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="AdminBranches.openBranchModal('${b.id}')" title="${isAr ? 'تعديل' : 'Edit'}">✏️</button>
+                        <a href="${b.mapUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" title="${isAr ? 'خرائط Google' : 'Google Maps'}">🗺️</a>
+                        <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger); border-color:var(--danger);" onclick="AdminBranches.deleteBranch('${b.id}')" title="${isAr ? 'حذف' : 'Delete'}">🗑️</button>
                       </div>
                     </td>
                   </tr>
@@ -169,7 +169,7 @@ const AdminBranches = (function() {
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
                 <div class="form-group">
                   <label class="form-label">${I18N.t('branchNameAr')} <span class="required-star">*</span></label>
-                  <input type="text" class="form-control" id="formBranchNameAr" required value="${branch ? branch.nameAr : ''}" placeholder="فرع مدينة نصر">
+                  <input type="text" class="form-control" id="formBranchNameAr" required value="${branch ? branch.nameAr : ''}" placeholder="${isAr ? 'فرع مدينة نصر' : 'Nasr City Branch'}">
                 </div>
                 <div class="form-group">
                   <label class="form-label">${I18N.t('branchNameEn')} <span class="required-star">*</span></label>
@@ -190,7 +190,7 @@ const AdminBranches = (function() {
 
               <div class="form-group">
                 <label class="form-label">${I18N.t('branchAddressInput')} <span class="required-star">*</span></label>
-                <input type="text" class="form-control" id="formBranchAddressAr" required value="${branch ? branch.addressAr : ''}" placeholder="شارع عباس العقاد، تقاطع مصطفى النحاس، القاهرة">
+                  <input type="text" class="form-control" id="formBranchAddressAr" required value="${branch ? branch.addressAr : ''}" placeholder="${isAr ? 'شارع عباس العقاد، تقاطع مصطفى النحاس، القاهرة' : 'Abbas El Akkad St., Mustafa El Nahas St. Intersection, Cairo'}">
               </div>
 
               <div class="form-group">
@@ -205,7 +205,7 @@ const AdminBranches = (function() {
                 </label>
                 <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
                   <input type="checkbox" id="formBranchActive" ${!branch || branch.active ? 'checked' : ''}>
-                  <span>نشط ويظهر للمشترين</span>
+                  <span>${isAr ? 'نشط ويظهر للمشترين' : 'Active and visible to customers'}</span>
                 </label>
               </div>
             </div>
@@ -255,7 +255,7 @@ const AdminBranches = (function() {
     },
 
     async deleteBranch(branchId) {
-      if (confirm('هل أنت متأكد من حذف هذا الفرع؟')) {
+      if (confirm(I18N.currentLang === 'ar' ? 'هل أنت متأكد من حذف هذا الفرع؟' : 'Are you sure you want to delete this branch?')) {
         let branches = await TajAPI.getBranches();
         branches = branches.filter(b => b.id !== branchId);
         localStorage.setItem('taj_branches_v1', JSON.stringify(branches));

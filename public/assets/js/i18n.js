@@ -250,7 +250,11 @@ const I18N = {
       
       // Missing services note
       systemNoticeTitle: "حالة الربط بالخادم",
-      systemNoticeBody: "الموقع ولوحة التحكم متصلان بخادم Node.js وقاعدة SQLite مشتركة. تُحفظ الطلبات والبيانات على الخادم، وتصل إشعارات التغييرات للمستخدمين المسجلين عبر SSE."
+      systemNoticeBody: "الموقع ولوحة التحكم متصلان بخادم Node.js وقاعدة SQLite مشتركة. تُحفظ الطلبات والبيانات على الخادم، وتصل إشعارات التغييرات للمستخدمين المسجلين عبر SSE.",
+      systemNoticeLabel: "حالة الربط:",
+      sidebarBrand: "تاج الخليج",
+      sidebarBadge: "لوحة الإدارة والمتابعة",
+      logout: "تسجيل الخروج"
     },
 
     en: {
@@ -496,7 +500,11 @@ const I18N = {
       
       // Missing services note
       systemNoticeTitle: "Server connection status",
-      systemNoticeBody: "The storefront and dashboard use a shared Node.js server and SQLite database. Orders and shop data are stored on the server, and signed-in users receive updates over SSE."
+      systemNoticeBody: "The storefront and dashboard use a shared Node.js server and SQLite database. Orders and shop data are stored on the server, and signed-in users receive updates over SSE.",
+      systemNoticeLabel: "Connection Status:",
+      sidebarBrand: "Taj El Khalig",
+      sidebarBadge: "Administration & Monitoring Panel",
+      logout: "Logout"
     }
   },
 

@@ -64,8 +64,8 @@ const AdminProducts = (function() {
         <!-- Categories Manager Accordion/Pills -->
         <div style="background:var(--admin-surface); border:1px solid var(--admin-border); border-radius:var(--radius-lg); padding:1.25rem; margin-bottom:1.5rem;">
           <h4 style="font-weight:800; font-size:1.05rem; margin-bottom:0.75rem; color:var(--admin-text); display:flex; justify-content:space-between; align-items:center;">
-            <span>📁 الأقسام المسجلة (${categories.length})</span>
-            <span style="font-size:0.8rem; font-weight:600; color:var(--admin-text-muted);">الأقسام غير النشطة تُخفى تلقائياً من متجر العملاء</span>
+            <span>📁 ${isAr ? 'الأقسام المسجلة' : 'Registered Categories'} (${categories.length})</span>
+            <span style="font-size:0.8rem; font-weight:600; color:var(--admin-text-muted);">${isAr ? 'الأقسام غير النشطة تُخفى تلقائياً من متجر العملاء' : 'Inactive categories are automatically hidden from the customer store'}</span>
           </h4>
           <div style="display:flex; flex-wrap:wrap; gap:0.6rem;">
             ${categories.map(cat => `
@@ -74,8 +74,8 @@ const AdminProducts = (function() {
                 <span class="badge-status ${cat.active ? 'completed' : 'cancelled'}" style="font-size:0.65rem; padding:0.1rem 0.4rem;">
                   ${cat.active ? I18N.t('active') : I18N.t('inactive')}
                 </span>
-                <button type="button" style="color:var(--admin-primary); margin-inline-start:4px;" onclick="AdminProducts.editCategory('${cat.id}')" title="تعديل">✏️</button>
-                <button type="button" style="color:var(--danger);" onclick="AdminProducts.deleteCategory('${cat.id}')" title="حذف">🗑️</button>
+                <button type="button" style="color:var(--admin-primary); margin-inline-start:4px;" onclick="AdminProducts.editCategory('${cat.id}')" title="${isAr ? 'تعديل' : 'Edit'}">✏️</button>
+                <button type="button" style="color:var(--danger);" onclick="AdminProducts.deleteCategory('${cat.id}')" title="${isAr ? 'حذف' : 'Delete'}">🗑️</button>
               </div>
             `).join('')}
           </div>
@@ -118,8 +118,8 @@ const AdminProducts = (function() {
                   <th>${I18N.t('productCategory')}</th>
                   <th>${I18N.t('regularPriceInput')}</th>
                   <th>${I18N.t('discountPriceInput')}</th>
-                  <th>المخزون</th>
-                  <th>حالة النشر</th>
+                  <th>${isAr ? 'المخزون' : 'Stock'}</th>
+                  <th>${isAr ? 'حالة النشر' : 'Publish Status'}</th>
                   <th>${I18N.t('actions')}</th>
                 </tr>
               </thead>
@@ -127,7 +127,7 @@ const AdminProducts = (function() {
                 ${products.length === 0 ? `
                   <tr>
                     <td colspan="9" style="text-align:center; padding:3rem; color:var(--admin-text-muted);">
-                      لا توجد منتجات مسجلة تطابق الفلترة
+                      ${isAr ? 'لا توجد منتجات مسجلة تطابق الفلترة' : 'No registered products match the current filters'}
                     </td>
                   </tr>
                 ` : products.map(p => {
@@ -155,13 +155,13 @@ const AdminProducts = (function() {
                         ${p.discountPrice ? `<strong style="color:var(--admin-primary);">${p.discountPrice} ${I18N.t('egp')}</strong>` : '<span style="color:var(--admin-text-muted);">—</span>'}
                       </td>
                       <td>
-                        <button type="button" class="badge-status ${p.inStock ? 'completed' : 'cancelled'}" onclick="AdminProducts.toggleStock('${p.id}', ${!p.inStock})" title="اضغط للتبديل">
-                          ${p.inStock ? 'متوفر' : 'غير متوفر'}
+                        <button type="button" class="badge-status ${p.inStock ? 'completed' : 'cancelled'}" onclick="AdminProducts.toggleStock('${p.id}', ${!p.inStock})" title="${isAr ? 'اضغط للتبديل' : 'Click to toggle'}">
+                          ${p.inStock ? (isAr ? 'متوفر' : 'In Stock') : (isAr ? 'غير متوفر' : 'Out of Stock')}
                         </button>
                       </td>
                       <td>
-                        <button type="button" class="badge-status ${p.active ? 'ready' : 'cancelled'}" onclick="AdminProducts.toggleActive('${p.id}', ${!p.active})" title="اضغط للتبديل">
-                          ${p.active ? 'نشط بالمتجر' : 'معطل'}
+                        <button type="button" class="badge-status ${p.active ? 'ready' : 'cancelled'}" onclick="AdminProducts.toggleActive('${p.id}', ${!p.active})" title="${isAr ? 'اضغط للتبديل' : 'Click to toggle'}">
+                          ${p.active ? (isAr ? 'نشط بالمتجر' : 'Active in Store') : (isAr ? 'معطل' : 'Disabled')}
                         </button>
                       </td>
                       <td>
@@ -232,7 +232,7 @@ const AdminProducts = (function() {
     },
 
     async deleteProduct(id) {
-      if (confirm('هل أنت متأكد من حذف هذا المنتج نهائياً؟')) {
+      if (confirm(I18N.currentLang === 'ar' ? 'هل أنت متأكد من حذف هذا المنتج نهائياً؟' : 'Are you sure you want to permanently delete this product?')) {
         await TajAPI.deleteProduct(id);
         selectedProductIds.delete(id);
         this.render();
@@ -280,7 +280,7 @@ const AdminProducts = (function() {
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
                 <div class="form-group">
                   <label class="form-label">${I18N.t('productNameAr')} <span class="required-star">*</span></label>
-                  <input type="text" class="form-control" id="formProdNameAr" required value="${product ? product.nameAr : ''}" placeholder="كنافة أساور بالفستق">
+                  <input type="text" class="form-control" id="formProdNameAr" required value="${product ? product.nameAr : ''}" placeholder="${isAr ? 'كنافة أساور بالفستق' : 'Kunafa Asawer with Pistachio'}">
                 </div>
                 <div class="form-group">
                   <label class="form-label">${I18N.t('productNameEn')} <span class="required-star">*</span></label>
@@ -296,17 +296,17 @@ const AdminProducts = (function() {
                   </select>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">${I18N.t('regularPriceInput')} (ج.م) <span class="required-star">*</span></label>
+                  <label class="form-label">${I18N.t('regularPriceInput')} (${I18N.t('egp')}) <span class="required-star">*</span></label>
                   <input type="number" step="0.5" class="form-control" id="formProdRegPrice" required value="${product ? product.regularPrice : ''}">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">${I18N.t('discountPriceInput')} (ج.م)</label>
+                  <label class="form-label">${I18N.t('discountPriceInput')} (${I18N.t('egp')})</label>
                   <input type="number" step="0.5" class="form-control" id="formProdDiscPrice" value="${product && product.discountPrice ? product.discountPrice : ''}">
                 </div>
               </div>
 
               <div class="form-group">
-                <label class="form-label">وصف المنتج (عربي)</label>
+                <label class="form-label">${isAr ? 'وصف المنتج (عربي)' : 'Product Description (Arabic)'}</label>
                 <textarea class="form-control" id="formProdDescAr" rows="2">${product ? product.descAr : ''}</textarea>
               </div>
 
@@ -317,29 +317,29 @@ const AdminProducts = (function() {
                   <img id="formProdImgPreview" src="${product ? product.image : 'assets/images/kunafa_plate.jpg'}" alt="Preview" style="width:70px; height:70px; border-radius:8px; object-fit:cover; border:1px solid var(--admin-border);">
                   <div style="flex-grow:1;">
                     <input type="file" id="formProdImgFile" accept="image/*" class="form-control" onchange="AdminProducts.handleImageUpload(event)">
-                    <small style="color:var(--admin-text-muted); font-size:0.75rem;">يمكنك رفع صورة من جهازك، أو اختيار أحد القوالب الجاهزة</small>
+                    <small style="color:var(--admin-text-muted); font-size:0.75rem;">${isAr ? 'يمكنك رفع صورة من جهازك، أو اختيار أحد القوالب الجاهزة' : 'You can upload an image from your device, or choose one of the presets'}</small>
                   </div>
                 </div>
                 <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="AdminProducts.setPresetImage('assets/images/kunafa_plate.jpg')">صورة كنافة</button>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="AdminProducts.setPresetImage('assets/images/basbousa_plate.jpg')">صورة بسبوسة</button>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="AdminProducts.setPresetImage('assets/images/gateau_cake.jpg')">صورة تورتة وجاتوه</button>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="AdminProducts.setPresetImage('assets/images/hero_sweets.jpg')">صورة مشكل شرقي</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="AdminProducts.setPresetImage('assets/images/kunafa_plate.jpg')">${isAr ? 'صورة كنافة' : 'Kunafa Image'}</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="AdminProducts.setPresetImage('assets/images/basbousa_plate.jpg')">${isAr ? 'صورة بسبوسة' : 'Basbousa Image'}</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="AdminProducts.setPresetImage('assets/images/gateau_cake.jpg')">${isAr ? 'صورة تورتة وجاتوه' : 'Cake & Gateau Image'}</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="AdminProducts.setPresetImage('assets/images/hero_sweets.jpg')">${isAr ? 'صورة مشكل شرقي' : 'Mixed Oriental Sweets Image'}</button>
                 </div>
               </div>
 
               <div style="display:flex; gap:2rem; margin-top:0.5rem;">
                 <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
                   <input type="checkbox" id="formProdInStock" ${!product || product.inStock ? 'checked' : ''}>
-                  <span>متوفر في المخزون</span>
+                  <span>${isAr ? 'متوفر في المخزون' : 'In Stock'}</span>
                 </label>
                 <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
                   <input type="checkbox" id="formProdActive" ${!product || product.active ? 'checked' : ''}>
-                  <span>نشط ويظهر للمشترين</span>
+                  <span>${isAr ? 'نشط ويظهر للمشترين' : 'Active and visible to customers'}</span>
                 </label>
                 <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
                   <input type="checkbox" id="formProdFeatured" ${product && product.featured ? 'checked' : ''}>
-                  <span>صنف مميز بالصفحة الرئيسية</span>
+                  <span>${isAr ? 'صنف مميز بالصفحة الرئيسية' : 'Featured on the home page'}</span>
                 </label>
               </div>
             </div>
@@ -380,7 +380,7 @@ const AdminProducts = (function() {
             const preview = document.getElementById('formProdImgPreview');
             if (preview) preview.src = this.currentEditingImage;
           };
-          image.onerror = () => alert('تعذر قراءة الصورة. اختر صورة بصيغة JPG أو PNG أو WebP.');
+          image.onerror = () => alert(I18N.currentLang === 'ar' ? 'تعذر قراءة الصورة. اختر صورة بصيغة JPG أو PNG أو WebP.' : 'Could not read the image. Choose a JPG, PNG or WebP image.');
           image.src = e.target.result;
         };
         reader.readAsDataURL(file);
@@ -446,7 +446,7 @@ const AdminProducts = (function() {
             <div class="modal-body-admin">
               <div class="form-group">
                 <label class="form-label">${I18N.t('categoryNameAr')} <span class="required-star">*</span></label>
-                <input type="text" class="form-control" id="formCatNameAr" required value="${category ? category.nameAr : ''}" placeholder="حلويات شرقية فاخرة">
+                <input type="text" class="form-control" id="formCatNameAr" required value="${category ? category.nameAr : ''}" placeholder="${isAr ? 'حلويات شرقية فاخرة' : 'Luxury Oriental Sweets'}">
               </div>
               <div class="form-group">
                 <label class="form-label">${I18N.t('categoryNameEn')} <span class="required-star">*</span></label>
@@ -455,7 +455,7 @@ const AdminProducts = (function() {
               <div class="form-group">
                 <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
                   <input type="checkbox" id="formCatActive" ${!category || category.active ? 'checked' : ''}>
-                  <span>نشط ويظهر في المتجر</span>
+                  <span>${isAr ? 'نشط ويظهر في المتجر' : 'Active and shown in the store'}</span>
                 </label>
               </div>
             </div>
@@ -497,7 +497,7 @@ const AdminProducts = (function() {
 
     async deleteCategory(id) {
       try {
-        if (confirm('هل أنت متأكد من حذف هذا القسم؟')) {
+        if (confirm(I18N.currentLang === 'ar' ? 'هل أنت متأكد من حذف هذا القسم؟' : 'Are you sure you want to delete this category?')) {
           await TajAPI.deleteCategory(id);
           this.render();
         }
@@ -515,7 +515,7 @@ const AdminProducts = (function() {
         const rows = await TajAPI.readXLSX(await file.arrayBuffer());
         const dataRows = rows.slice(1).filter(r => r.slice(0, 3).some(v => String(v).trim() !== ''));
         if (!dataRows.length) {
-          alert('الملف فارغ أو لا يحتوي على بيانات منتجات');
+          alert(I18N.currentLang === 'ar' ? 'الملف فارغ أو لا يحتوي على بيانات منتجات' : 'The file is empty or contains no product data');
           return;
         }
 
@@ -545,10 +545,10 @@ const AdminProducts = (function() {
           importedCount++;
         }
 
-        alert(`تم استيراد ${importedCount} منتج بنجاح وتحديثها في المتجر.`);
+        alert(I18N.currentLang === 'ar' ? `تم استيراد ${importedCount} منتج بنجاح وتحديثها في المتجر.` : `Imported ${importedCount} product(s) successfully and updated them in the store.`);
         AdminProducts.render();
       } catch (err) {
-        alert('خطأ أثناء قراءة ملف XLSX: ' + err.message);
+        alert((I18N.currentLang === 'ar' ? 'خطأ أثناء قراءة ملف XLSX: ' : 'Error reading XLSX file: ') + err.message);
       }
       event.target.value = '';
     }

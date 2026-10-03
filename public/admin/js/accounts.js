@@ -29,9 +29,9 @@ const AdminAccounts = (function() {
         <div class="system-status-banner">
           <div class="system-status-icon">🛡️</div>
           <div>
-            <strong>نظام الصلاحيات والحماية (Role-Based Access Control):</strong>
+            <strong>${isAr ? 'نظام الصلاحيات والحماية (Role-Based Access Control):' : 'Permissions & Protection System (Role-Based Access Control):'}</strong>
             <p style="margin-top:0.25rem;">
-              يدعم النظام مستويين من الصلاحيات: <strong>admin</strong> (الوصول الكامل والتحكم بجميع الإعدادات والمنتجات والفروع)، و <strong>branch</strong> (مقيد فقط بطلبات وتقارير الفرع التابع له، ومحجوب عنه كلياً تعديل المنتجات أو الأقسام أو الفروع أو إعدادات المتجر).
+              ${isAr ? 'يدعم النظام مستويين من الصلاحيات:' : 'The system supports two permission levels:'} <strong>admin</strong> ${isAr ? '(الوصول الكامل والتحكم بجميع الإعدادات والمنتجات والفروع)، و' : '(full access and control over all settings, products and branches), and'} <strong>branch</strong> ${isAr ? '(مقيد فقط بطلبات وتقارير الفرع التابع له، ومحجوب عنه كلياً تعديل المنتجات أو الأقسام أو الفروع أو إعدادات المتجر).' : '(limited strictly to the orders and reports of their assigned branch, and completely blocked from editing products, categories, branches or shop settings).'}
             </p>
           </div>
         </div>
@@ -39,7 +39,7 @@ const AdminAccounts = (function() {
         ${window.TAJ_CONFIG?.mode === 'remote' ? `
           <div style="margin-bottom:1.25rem;">
             <button type="button" class="btn btn-primary" onclick="AdminAccounts.openUserModal()">
-              ➕ إضافة مستخدم جديد
+              ➕ ${isAr ? 'إضافة مستخدم جديد' : 'Add New User'}
             </button>
           </div>
         ` : ''}
@@ -50,11 +50,11 @@ const AdminAccounts = (function() {
               <thead>
                 <tr>
                   <th>${I18N.t('accountUser')}</th>
-                  <th>الاسم المعروض</th>
+                  <th>${isAr ? 'الاسم المعروض' : 'Display Name'}</th>
                   <th>${I18N.t('accountRole')}</th>
                   <th>${I18N.t('accountBranch')}</th>
-                  <th>الحالة</th>
-                  <th>${window.TAJ_CONFIG?.mode === 'remote' ? 'الحالة' : 'تبديل الحساب للاختبار'}</th>
+                  <th>${isAr ? 'الحالة' : 'Status'}</th>
+                  <th>${window.TAJ_CONFIG?.mode === 'remote' ? (isAr ? 'الحالة' : 'Status') : (isAr ? 'تبديل الحساب للاختبار' : 'Switch Account (Test)')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -70,16 +70,16 @@ const AdminAccounts = (function() {
                           ${u.role === 'admin' ? I18N.t('roleAdmin') : I18N.t('roleBranch')}
                         </span>
                       </td>
-                      <td>${branch ? (isAr ? branch.nameAr : branch.nameEn) : '— (جميع الفروع)'}</td>
+                      <td>${branch ? (isAr ? branch.nameAr : branch.nameEn) : (isAr ? '— (جميع الفروع)' : '— (All Branches)')}</td>
                       <td>
-                        <span class="badge-status ${u.active === false ? 'cancelled' : 'completed'}">${u.active === false ? 'معطل' : 'نشط'}</span>
+                        <span class="badge-status ${u.active === false ? 'cancelled' : 'completed'}">${u.active === false ? (isAr ? 'معطل' : 'Disabled') : (isAr ? 'نشط' : 'Active')}</span>
                       </td>
                       <td>
-                        ${window.TAJ_CONFIG?.mode === 'remote' ? (isCurrent ? 'جلسة الدخول الحالية' : `<button type="button" class="btn btn-outline btn-sm" onclick="AdminAccounts.setActive('${u.id}', ${u.active === false})">${u.active === false ? 'تفعيل الحساب' : 'تعطيل الحساب'}</button>`) : isCurrent ? `
-                          <span style="color:var(--admin-primary); font-weight:800;">👈 الحساب النشط حالياً</span>
+                        ${window.TAJ_CONFIG?.mode === 'remote' ? (isCurrent ? (isAr ? 'جلسة الدخول الحالية' : 'Current Login Session') : `<button type="button" class="btn btn-outline btn-sm" onclick="AdminAccounts.setActive('${u.id}', ${u.active === false})">${u.active === false ? (isAr ? 'تفعيل الحساب' : 'Enable Account') : (isAr ? 'تعطيل الحساب' : 'Disable Account')}</button>`) : isCurrent ? `
+                          <span style="color:var(--admin-primary); font-weight:800;">${isAr ? '👈 الحساب النشط حالياً' : '👈 Currently active account'}</span>
                         ` : `
                           <button type="button" class="btn btn-outline btn-sm" onclick="AdminApp.switchUser('${u.id}')">
-                            🔄 تسجيل الدخول بهذا الحساب
+                            ${isAr ? '🔄 تسجيل الدخول بهذا الحساب' : '🔄 Sign in with this account'}
                           </button>
                         `}
                       </td>
@@ -107,7 +107,7 @@ const AdminAccounts = (function() {
       modal.innerHTML = `
         <div class="admin-modal-box">
           <div class="modal-header-admin">
-            <h3 style="font-weight:900; font-size:1.25rem; color:var(--admin-primary);">إضافة مستخدم جديد</h3>
+            <h3 style="font-weight:900; font-size:1.25rem; color:var(--admin-primary);">${isAr ? 'إضافة مستخدم جديد' : 'Add New User'}</h3>
             <button type="button" class="drawer-close-btn" onclick="document.getElementById('adminUserModal').classList.remove('active')">✕</button>
           </div>
 
@@ -115,30 +115,30 @@ const AdminAccounts = (function() {
             <div class="modal-body-admin">
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
                 <div class="form-group">
-                  <label class="form-label">اسم المستخدم <span class="required-star">*</span></label>
+                  <label class="form-label">${isAr ? 'اسم المستخدم' : 'Username'} <span class="required-star">*</span></label>
                   <input type="text" class="form-control" name="username" required autocomplete="off">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">الاسم بالعربية <span class="required-star">*</span></label>
+                  <label class="form-label">${isAr ? 'الاسم بالعربية' : 'Arabic Name'} <span class="required-star">*</span></label>
                   <input type="text" class="form-control" name="nameAr" required>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">الاسم بالإنجليزية <span class="required-star">*</span></label>
+                  <label class="form-label">${isAr ? 'الاسم بالإنجليزية' : 'English Name'} <span class="required-star">*</span></label>
                   <input type="text" class="form-control" name="nameEn" required>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">كلمة مرور مؤقتة (12 حرفًا على الأقل) <span class="required-star">*</span></label>
+                  <label class="form-label">${isAr ? 'كلمة مرور مؤقتة (12 حرفًا على الأقل)' : 'Temporary Password (min 12 characters)'} <span class="required-star">*</span></label>
                   <input type="password" class="form-control" name="password" minlength="12" required autocomplete="new-password">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">نوع الحساب</label>
+                  <label class="form-label">${isAr ? 'نوع الحساب' : 'Account Type'}</label>
                   <select class="form-control" name="role">
                     <option value="branch">Branch</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
                 <div class="form-group" id="staffBranchField">
-                  <label class="form-label">الفرع <span class="required-star">*</span></label>
+                  <label class="form-label">${isAr ? 'الفرع' : 'Branch'} <span class="required-star">*</span></label>
                   <select class="form-control" name="branchId" required>${branches.filter(b=>b.active).map(b=>`<option value="${b.id}">${isAr?b.nameAr:b.nameEn}</option>`).join('')}</select>
                 </div>
               </div>
@@ -146,8 +146,8 @@ const AdminAccounts = (function() {
             </div>
 
             <div class="modal-footer-admin">
-              <button type="button" class="btn btn-secondary" onclick="document.getElementById('adminUserModal').classList.remove('active')">إلغاء</button>
-              <button type="submit" class="btn btn-primary">حفظ</button>
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('adminUserModal').classList.remove('active')">${isAr ? 'إلغاء' : 'Cancel'}</button>
+              <button type="submit" class="btn btn-primary">${isAr ? 'حفظ' : 'Save'}</button>
             </div>
           </form>
         </div>

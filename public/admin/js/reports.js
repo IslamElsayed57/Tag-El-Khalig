@@ -25,9 +25,9 @@ const AdminReports = (function() {
       container.innerHTML = `
         <!-- Print-only Formal Letterhead Header (seen only when printing) -->
         <div class="print-only-header">
-          <h1>حلواني تاج الخليج - تقرير المبيعات الرسمي</h1>
-          <p>تاريخ استخراج التقرير: ${new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US', { dateStyle: 'full' })} | العملة: جنيه مصري (EGP)</p>
-          <p><strong>قاعدة الحساب:</strong> ${reportData.calculationRule}</p>
+          <h1>${isAr ? 'حلواني تاج الخليج - تقرير المبيعات الرسمي' : 'Taj El Khalig Sweets - Official Sales Report'}</h1>
+          <p>${isAr ? 'تاريخ استخراج التقرير' : 'Report Date'}: ${new Date().toLocaleDateString(isAr ? 'ar-EG' : 'en-US', { dateStyle: 'full' })} | ${isAr ? 'العملة: جنيه مصري (EGP)' : 'Currency: Egyptian Pound (EGP)'}</p>
+          <p><strong>${isAr ? 'قاعدة الحساب' : 'Calculation Rule'}:</strong> ${reportData.calculationRule}</p>
         </div>
 
         <!-- Accounting Rule Notice -->
@@ -102,10 +102,10 @@ const AdminReports = (function() {
             <table class="admin-table">
               <thead>
                 <tr>
-                  <th>اسم الفرع</th>
-                  <th>عدد الطلبات المؤكدة</th>
-                  <th>إجمالي المبيعات (ج.م)</th>
-                  <th>نسبة المساهمة</th>
+                  <th>${isAr ? 'اسم الفرع' : 'Branch Name'}</th>
+                  <th>${isAr ? 'عدد الطلبات المؤكدة' : 'Confirmed Orders'}</th>
+                  <th>${isAr ? 'إجمالي المبيعات (ج.م)' : 'Total Sales (EGP)'}</th>
+                  <th>${isAr ? 'نسبة المساهمة' : 'Contribution %'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -114,7 +114,7 @@ const AdminReports = (function() {
                   return `
                     <tr>
                       <td><strong>${isAr ? b.nameAr : b.nameEn}</strong></td>
-                      <td>${b.ordersCount} طلب</td>
+                      <td>${b.ordersCount} ${isAr ? 'طلب' : (b.ordersCount === 1 ? 'order' : 'orders')}</td>
                       <td><strong style="color:var(--admin-primary);">${b.sales} ${I18N.t('egp')}</strong></td>
                       <td>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
