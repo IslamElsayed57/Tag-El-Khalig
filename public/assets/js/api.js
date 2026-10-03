@@ -405,6 +405,150 @@ const TajAPI = (function() {
     };
   }
 
+  // ---------------------------------------------------------------
+  // Minimal real XLSX writer (no external libraries).
+  // An .xlsx file is a ZIP package of Office Open XML parts; this builds
+  // it with stored (uncompressed) entries so Excel opens it natively.
+  // ---------------------------------------------------------------
+  const CRC32_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) c = CRC32_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function zipStore(entries) {
+    const encoder = new TextEncoder();
+    const localParts = [];
+    const centralParts = [];
+    let offset = 0;
+
+    const u16 = v => [v & 0xFF, (v >>> 8) & 0xFF];
+    const u32 = v => [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF];
+    const dosDate = 22561; // 2024-01-01 in MS-DOS format
+
+    entries.forEach(entry => {
+      const nameBytes = encoder.encode(entry.name);
+      const data = entry.data;
+      const crc = crc32(data);
+
+      const localHeader = new Uint8Array([].concat(
+        u32(0x04034b50), u16(20), u16(0), u16(0),
+        u16(0), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length),
+        u16(nameBytes.length), u16(0)
+      ));
+      localParts.push(localHeader, nameBytes, data);
+
+      const centralHeader = new Uint8Array([].concat(
+        u32(0x02014b50), u16(20), u16(20), u16(0), u16(0),
+        u16(0), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length),
+        u16(nameBytes.length), u16(0), u16(0),
+        u16(0), u16(0), u32(0), u32(offset)
+      ));
+      centralParts.push(centralHeader, nameBytes);
+
+      offset += localHeader.length + nameBytes.length + data.length;
+    });
+
+    const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+    const eocd = new Uint8Array([].concat(
+      u32(0x06054b50), u16(0), u16(0),
+      u16(entries.length), u16(entries.length),
+      u32(centralSize), u32(offset), u16(0)
+    ));
+
+    return new Blob([...localParts, ...centralParts, eocd],
+      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+
+  function xmlEscape(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  function columnRef(index) {
+    let ref = '';
+    let n = index + 1;
+    while (n > 0) {
+      const rem = (n - 1) % 26;
+      ref = String.fromCharCode(65 + rem) + ref;
+      n = Math.floor((n - 1) / 26);
+    }
+    return ref;
+  }
+
+  function buildSheetXml(rows) {
+    const rowsXml = rows.map((row, r) => {
+      const cells = row.map((value, c) => {
+        const ref = columnRef(c) + (r + 1);
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return `<c r="${ref}"><v>${value}</v></c>`;
+        }
+        const text = value == null ? '' : String(value);
+        return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(text)}</t></is></c>`;
+      }).join('');
+      return `<row r="${r + 1}">${cells}</row>`;
+    }).join('');
+
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      `<sheetData>${rowsXml}</sheetData></worksheet>`;
+  }
+
+  function downloadXlsx(fileName, sheetName, rows) {
+    const encoder = new TextEncoder();
+    const parts = [
+      ['[Content_Types].xml',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+        '</Types>'],
+      ['_rels/.rels',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+        '</Relationships>'],
+      ['xl/workbook.xml',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+        `<sheets><sheet name="${xmlEscape(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+      ['xl/_rels/workbook.xml.rels',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+        '</Relationships>'],
+      ['xl/worksheets/sheet1.xml', buildSheetXml(rows)]
+    ];
+
+    const blob = zipStore(parts.map(([name, xml]) => ({ name, data: encoder.encode(xml) })));
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
   // Public API methods (emulating async backend endpoints)
   const localApi = {
     // Current User & Authentication
@@ -850,59 +994,51 @@ const TajAPI = (function() {
       };
     },
 
-    // CSV Import / Export utility methods
-    exportOrdersCSV(orders) {
+    // XLSX Export utility methods
+    exportOrdersXLSX(orders) {
+      const num = v => { const n = Number(v); return Number.isFinite(n) ? n : ''; };
       const headers = ['Order ID', 'Date', 'Customer Name', 'Phone', 'Type', 'Branch', 'Subtotal', 'Delivery Fee', 'Total', 'Status', 'Address', 'Notes'];
-      const rows = orders.map(o => [
-        `"${o.id}"`,
-        `"${new Date(o.createdAt).toLocaleString('ar-EG')}"`,
-        `"${(o.customerName || '').replace(/"/g, '""')}"`,
-        `"${o.customerPhone}"`,
-        `"${o.type === 'delivery' ? 'توصيل منزلي' : 'استلام من الفرع'}"`,
-        `"${(o.branchNameAr || '').replace(/"/g, '""')}"`,
-        o.subtotal,
-        o.deliveryFee,
-        o.total,
-        `"${o.status}"`,
-        `"${(o.address || '').replace(/"/g, '""')}"`,
-        `"${(o.notes || '').replace(/"/g, '""')}"`
-      ]);
+      const rows = [
+        headers,
+        ...orders.map(o => [
+          String(o.id),
+          new Date(o.createdAt).toLocaleString('ar-EG'),
+          o.customerName || '',
+          String(o.customerPhone ?? ''),
+          o.type === 'delivery' ? 'توصيل منزلي' : 'استلام من الفرع',
+          o.branchNameAr || '',
+          num(o.subtotal),
+          num(o.deliveryFee),
+          num(o.total),
+          o.status || '',
+          o.address || '',
+          o.notes || ''
+        ])
+      ];
 
-      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `taj_orders_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadXlsx(`taj_orders_${new Date().toISOString().slice(0, 10)}.xlsx`, 'الطلبات', rows);
     },
 
-    exportProductsCSV(products) {
+    exportProductsXLSX(products) {
+      const num = v => { const n = Number(v); return Number.isFinite(n) ? n : ''; };
       const headers = ['ID', 'Category ID', 'Name Arabic', 'Name English', 'Regular Price', 'Discount Price', 'In Stock', 'Active', 'Description Arabic', 'Description English'];
-      const rows = products.map(p => [
-        `"${p.id}"`,
-        `"${p.categoryId}"`,
-        `"${(p.nameAr || '').replace(/"/g, '""')}"`,
-        `"${(p.nameEn || '').replace(/"/g, '""')}"`,
-        p.regularPrice,
-        p.discountPrice || '',
-        p.inStock ? 1 : 0,
-        p.active ? 1 : 0,
-        `"${(p.descAr || '').replace(/"/g, '""')}"`,
-        `"${(p.descEn || '').replace(/"/g, '""')}"`
-      ]);
+      const rows = [
+        headers,
+        ...products.map(p => [
+          String(p.id),
+          p.categoryId || '',
+          p.nameAr || '',
+          p.nameEn || '',
+          num(p.regularPrice),
+          p.discountPrice === '' || p.discountPrice == null ? '' : num(p.discountPrice),
+          p.inStock ? 1 : 0,
+          p.active ? 1 : 0,
+          p.descAr || '',
+          p.descEn || ''
+        ])
+      ];
 
-      const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `taj_products_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadXlsx(`taj_products_${new Date().toISOString().slice(0, 10)}.xlsx`, 'المنتجات', rows);
     },
 
     downloadProductsCSVTemplate() {

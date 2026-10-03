@@ -51,7 +51,7 @@ const AdminProducts = (function() {
               <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('importCsvInput').click()">
                 📂 ${I18N.t('importCSV')}
               </button>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="TajAPI.exportProductsCSV(AdminProducts.allProdsCache)">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="TajAPI.exportProductsXLSX(AdminProducts.allProdsCache)">
                 📤 ${I18N.t('exportCSV')}
               </button>
               <button type="button" class="btn btn-outline btn-sm" onclick="TajAPI.downloadProductsCSVTemplate()">

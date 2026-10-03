@@ -229,7 +229,7 @@ const AdminOrders = (function() {
       const exportBtn = document.getElementById('exportOrdersCsvBtn');
       if (exportBtn) {
         exportBtn.addEventListener('click', () => {
-          TajAPI.exportOrdersCSV(allOrders);
+          TajAPI.exportOrdersXLSX(allOrders);
         });
       }
     },
