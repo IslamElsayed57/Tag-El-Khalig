@@ -40,6 +40,29 @@ Create a local `.dev.vars` file with `TAJ_ADMIN_USER` and `TAJ_ADMIN_PASSWORD` f
 - `server/server.mjs` — Node/SQLite copy of the API; **must be kept in parity** with the Functions API (every server-side change goes into both files).
 - `public/assets/js/api.js` — API client; contains the remote implementation plus a full local (localStorage) fallback that mirrors server behavior.
 
+## Storage model, images, and free-plan limits
+
+### D1 tables
+`branches`, `categories`, `products`, `orders`, `users`, `sessions`, `login_attempts`, `settings`, `events` (+ `sqlite_sequence`, auto-created by SQLite). Catalogue/settings tables are seeded from in-code defaults on first boot when empty.
+
+### Product images (two supported forms)
+- **Base64 in D1 (current default)**: the admin upload resizes in-browser (max side 1200px → WebP quality 0.76) and stores a `data:` URL inside `products.data.image`; the API rejects images longer than ~1.5M chars (≈1 MB) with 413.
+- **Static files**: `image` may instead be a relative path such as `assets/images/kunafa_plate.jpg` (the 4 preset buttons do this); files under `public/assets/images/` are served by Pages free & unlimited and never count against D1.
+- **Owner decision**: images stay in D1 for now; storage stays under the cap by bounding photo count/size and using the admin "old orders cleanup" feature (development log item 5). Moving photos to `public/assets/images/` later would free D1 entirely (requires linking each photo to its product — no upload-to-path UI yet, only the 4 presets).
+
+### Free-plan limits (verified 2026-10)
+| Item | Limit |
+|---|---|
+| Pages Functions / Workers requests | 100,000/day (static asset requests are free & unlimited) |
+| CPU per Functions invocation | 10 ms |
+| Pages builds | 500/month, 1 concurrent, 20 min timeout |
+| D1 rows read | 5 million/day |
+| D1 rows written | 100,000/day — **enforced since 2026-09-01**, queries error until 00:00 UTC |
+| D1 storage | 5 GB per account / **500 MB per database** / 2 MB max row |
+| D1 queries per invocation | 50 |
+
+Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bounded), a base64 photo ≈ 0.2–1.5 MB (worst case ≈ 330 photos in 500 MB). Code-level order caps: item quantity clamped 1–99, request body ≤ 2 MB, Egyptian mobile format (`01…`), order list pages ≤ 1000 rows. Each open dashboard tab polls `/api/events` every 10 s ≈ 8.6k requests/day; `events` rows are auto-deleted after 7 days inside `addEvent`.
+
 ## Development log (changes applied to this project)
 
 ### Latest session — 2026-10-03
