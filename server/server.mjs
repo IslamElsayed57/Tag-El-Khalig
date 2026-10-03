@@ -256,6 +256,11 @@ async function handle(req, res) {
     return json(res, 201, orderData);
   }
 
+  const guestEntity = path.match(/^\/api\/(categories|products|branches)\/([^/]+)$/);
+  if (guestEntity && method === 'GET') {
+    const row = db.prepare(`SELECT data FROM ${guestEntity[1]} WHERE id=?`).get(guestEntity[2]);
+    return row ? json(res, 200, decode(row.data)) : json(res, 404, { error:'Not found' });
+  }
   const user = requireAuth(req, res); if (!user) return;
   const isAdmin = user.role === 'admin';
   const requireAdmin = () => { if (!isAdmin) json(res, 403, { error:'Administrator permission required' }); return isAdmin; };

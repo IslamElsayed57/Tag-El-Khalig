@@ -189,6 +189,8 @@ export async function onRequest(context) {
       await addEvent(env,'taj_new_order',{order,branchId:branch.id},branch.id);return json(order,201);
     }
 
+    const guestEntity=path.match(/^\/(categories|products|branches)\/([^/]+)$/);
+    if(guestEntity&&method==='GET'){const row=await db.prepare(`SELECT data FROM ${guestEntity[1]} WHERE id=?`).bind(decodeURIComponent(guestEntity[2])).first();return row?json(decode(row.data)):json({error:'Not found'},404);}
     const user=await auth(request,env); if(!user)return json({error:'Authentication required'},401);
     const isAdmin=user.role==='admin', requireAdmin=()=>isAdmin;
     if(path==='/users'&&method==='GET') {if(!isAdmin)return json({error:'Administrator permission required'},403);const r=await db.prepare('SELECT * FROM users ORDER BY username').all();return json(r.results.map(safeUser));}
