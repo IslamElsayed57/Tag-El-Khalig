@@ -203,12 +203,58 @@ const TajCart = (function() {
 
       if (footer) footer.style.display = 'block';
 
-      const branches = await TajAPI.getBranches(true);
+      // Items list - built and rendered immediately, before any network call,
+      // so the drawer never shows a stale/empty state on slow connections.
+      const itemsHtml = cartItems.map(item => `
+        <div class="cart-item" data-id="${item.id}">
+          <img src="${item.image}" alt="${isAr ? item.nameAr : item.nameEn}" class="cart-item-img">
+          <div class="cart-item-info">
+            <h4 class="cart-item-title">${isAr ? item.nameAr : item.nameEn}</h4>
+            <div class="cart-item-price">${item.price} ${I18N.t('egp')}</div>
+            <div class="cart-item-qty-row">
+              <div class="qty-control">
+                <button type="button" class="qty-btn" onclick="TajCart.updateQuantity('${item.id}', ${item.quantity - 1})" aria-label="Decrease">-</button>
+                <span class="qty-value">${item.quantity}</span>
+                <button type="button" class="qty-btn" onclick="TajCart.updateQuantity('${item.id}', ${item.quantity + 1})" aria-label="Increase">+</button>
+              </div>
+              <button type="button" class="cart-remove-btn" onclick="TajCart.removeItem('${item.id}')" title="${I18N.t('delete')}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      container.innerHTML = `<div class="cart-items-wrapper">${itemsHtml}</div>`;
+
+      // Branches & calculations must never block rendering the cart items.
+      // On mobile a slow/failed request here used to leave the drawer showing
+      // the previous (empty) state even though items were saved.
+      let branches = [];
+      try {
+        branches = await TajAPI.getBranches(true);
+      } catch (e) {
+        console.error('Failed to load branches for cart', e);
+      }
       if (!selectedBranchId && branches.length > 0) {
         selectedBranchId = branches[0].id;
       }
 
-      const calc = await this.getCalculations();
+      let calc;
+      try {
+        calc = await this.getCalculations();
+      } catch (e) {
+        console.error('Failed to calculate cart totals', e);
+        const subtotal = cartItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+        calc = {
+          subtotal,
+          deliveryFee: currentFulfillment === 'delivery' ? 25 : 0,
+          total: subtotal + (currentFulfillment === 'delivery' ? 25 : 0),
+          threshold: 250,
+          freeDeliveryRemaining: Math.max(0, 250 - subtotal),
+          isFreeDelivery: false
+        };
+      }
 
       // Free delivery progress bar
       let freeDeliveryHtml = '';
@@ -230,27 +276,6 @@ const TajCart = (function() {
           </div>
         `;
       }
-
-      // Items list
-      const itemsHtml = cartItems.map(item => `
-        <div class="cart-item" data-id="${item.id}">
-          <img src="${item.image}" alt="${isAr ? item.nameAr : item.nameEn}" class="cart-item-img">
-          <div class="cart-item-info">
-            <h4 class="cart-item-title">${isAr ? item.nameAr : item.nameEn}</h4>
-            <div class="cart-item-price">${item.price} ${I18N.t('egp')}</div>
-            <div class="cart-item-qty-row">
-              <div class="qty-control">
-                <button type="button" class="qty-btn" onclick="TajCart.updateQuantity('${item.id}', ${item.quantity - 1})" aria-label="Decrease">-</button>
-                <span class="qty-value">${item.quantity}</span>
-                <button type="button" class="qty-btn" onclick="TajCart.updateQuantity('${item.id}', ${item.quantity + 1})" aria-label="Increase">+</button>
-              </div>
-              <button type="button" class="cart-remove-btn" onclick="TajCart.removeItem('${item.id}')" title="${I18N.t('delete')}">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      `).join('');
 
       // Fulfillment selection
       const fulfillmentHtml = `
@@ -621,6 +646,9 @@ const TajCart = (function() {
               if (product) {
                 this.addItem(product, 1, btn);
               }
+            }).catch(err => {
+              console.error('Failed to add product to cart', err);
+              this.showToast('⚠️ ' + I18N.t('error'));
             });
           }
         }
