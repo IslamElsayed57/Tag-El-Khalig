@@ -107,7 +107,16 @@ async function auth(request, env) {
 async function body(request) {
   const length=Number(request.headers.get('Content-Length')||0);
   if(length>2_000_000) throw Object.assign(new Error('Request body too large'),{status:413});
-  return await request.json();
+  const reader=request.body&&request.body.getReader?request.body.getReader():null;
+  if(!reader) return await request.json();
+  const decoder=new TextDecoder();let raw='';
+  while(true){
+    const chunk=await reader.read();
+    if(chunk.done)break;
+    raw+=decoder.decode(chunk.value,{stream:true});
+    if(raw.length>2_000_000){try{await reader.cancel();}catch{}throw Object.assign(new Error('Request body too large'),{status:413});}
+  }
+  return raw?JSON.parse(raw):{};
 }
 async function list(env, table, activeOnly=false) {
   const rows = await env.DB.prepare(`SELECT data FROM ${table}${activeOnly?' WHERE active=1':''}`).all();
@@ -179,11 +188,13 @@ export async function onRequest(context) {
     if(path==='/orders' && method==='POST') {
       const input=await body(request), phone=String(input.customerPhone||'').replace(/\D/g,'');
       if(!/^01\d{9}$/.test(phone)||!String(input.customerName||'').trim()||!Array.isArray(input.items)||!input.items.length) return json({error:'Valid name, Egyptian mobile, and order items are required'},400);
+      if(String(input.customerName||'').trim().length>120) return json({error:'Customer name must be 120 characters or fewer'},400);
+      if(String(input.notes||'').trim().length>500) return json({error:'Order notes must be 500 characters or fewer'},400);
       const settings=decode((await db.prepare('SELECT data FROM settings WHERE id=1').first()).data), products=new Map((await list(env,'products',true)).map(p=>[p.id,p])), items=[];
       for(const item of input.items){const product=products.get(String(item.productId||item.id)),quantity=Math.max(1,Math.min(99,Math.floor(Number(item.quantity)||1)));if(!product||product.inStock===false)return json({error:'An item is no longer available'},400);const price=Number(product.discountPrice||product.regularPrice);items.push({productId:product.id,nameAr:product.nameAr,nameEn:product.nameEn,image:product.image,price,quantity});}
       const subtotal=items.reduce((s,x)=>s+x.price*x.quantity,0),type=input.type==='pickup'?'pickup':'delivery',deliveryFee=type==='delivery'&&subtotal<Number(settings.freeDeliveryThreshold||0)?Number(settings.deliveryFee||0):0;
       const branchRow=await db.prepare('SELECT data FROM branches WHERE id=? AND active=1').bind(String(input.branchId||'')).first();if(!branchRow)return json({error:'Please choose an active branch'},400);
-      const branch=decode(branchRow.data);if(type==='delivery'&&!branch.deliveryEligible)return json({error:'Selected branch does not provide delivery'},400);if(type==='delivery'&&!String(input.address||'').trim())return json({error:'A delivery address is required'},400);
+      const branch=decode(branchRow.data);if(type==='delivery'&&!branch.deliveryEligible)return json({error:'Selected branch does not provide delivery'},400);if(type==='delivery'&&!String(input.address||'').trim())return json({error:'A delivery address is required'},400);if(String(input.address||'').trim().length>300)return json({error:'Delivery address must be 300 characters or fewer'},400);
       const createdAt=nowIso(),order={createdAt,customerName:String(input.customerName).trim(),customerPhone:phone,type,branchId:branch.id,branchNameAr:branch.nameAr,branchNameEn:branch.nameEn,deliveryFee,subtotal,total:subtotal+deliveryFee,status:'new',items,address:input.address||null,gpsCoordinates:input.gpsCoordinates||null,notes:String(input.notes||'').trim()};
       const result=await db.prepare('INSERT INTO orders(customer_name,customer_phone,branch_id,status,created_at,data) VALUES(?,?,?,?,?,?)').bind(order.customerName,phone,branch.id,'new',createdAt,encode(order)).run();order.id=String(result.meta.last_row_id);await db.prepare('UPDATE orders SET data=? WHERE id=?').bind(encode(order),result.meta.last_row_id).run();
       await addEvent(env,'taj_new_order',{order,branchId:branch.id},branch.id);return json(order,201);

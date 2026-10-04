@@ -146,7 +146,7 @@ const AdminOrders = (function() {
                   <tr>
                     <td><strong>#${o.id}</strong></td>
                     <td style="font-size:0.85rem; color:var(--admin-text-muted);">${new Date(o.createdAt).toLocaleDateString(isAr ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                    <td><strong>${o.customerName}</strong></td>
+                    <td><strong>${escapeHtml(o.customerName)}</strong></td>
                     <td dir="ltr" style="font-family:monospace; font-size:0.9rem;">${o.customerPhone}</td>
                     <td>
                       <span style="font-size:0.85rem; font-weight:700;">
@@ -361,20 +361,20 @@ const AdminOrders = (function() {
             <div style="background:var(--admin-bg); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.25rem;">
               <h4 style="font-size:0.95rem; font-weight:800; margin-bottom:0.6rem; color:var(--admin-text);">${I18N.t('customerDetails')}</h4>
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; font-size:0.9rem;">
-                <div><strong>${I18N.t('customerName')}:</strong> ${order.customerName}</div>
+                <div><strong>${I18N.t('customerName')}:</strong> ${escapeHtml(order.customerName)}</div>
                 <div><strong>${I18N.t('orderPhone')}:</strong> <a href="tel:${order.customerPhone}" dir="ltr">${order.customerPhone}</a></div>
                 <div><strong>${I18N.t('orderType')}:</strong> ${order.type === 'delivery' ? I18N.t('fulfillmentDelivery') : I18N.t('fulfillmentPickup')}</div>
                 <div><strong>${I18N.t('orderBranch')}:</strong> ${isAr ? order.branchNameAr : order.branchNameEn}</div>
               </div>
               ${order.address ? `
                 <div style="margin-top:0.6rem; font-size:0.9rem;">
-                  <strong>العنوان:</strong> ${order.address}
+                  <strong>العنوان:</strong> ${escapeHtml(order.address)}
                   ${gpsHtml}
                 </div>
               ` : ''}
               ${order.notes ? `
                 <div style="margin-top:0.6rem; font-size:0.9rem; color:var(--admin-primary); background:var(--admin-primary-light); padding:0.5rem; border-radius:4px;">
-                  <strong>📝 ${I18N.t('notes')}:</strong> ${order.notes}
+                  <strong>📝 ${I18N.t('notes')}:</strong> ${escapeHtml(order.notes)}
                 </div>
               ` : ''}
             </div>

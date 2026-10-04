@@ -3,6 +3,14 @@
  * Manages tabs, role checks, notifications, audio chime, and reactive syncing.
  */
 
+// Escapes text before it is interpolated into innerHTML templates.
+// Customer-supplied fields (name, address, notes) must pass through this.
+function escapeHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
+}
+
 const AdminApp = (function() {
   let activeTab = 'orders';
   let currentUser = null;
@@ -124,7 +132,7 @@ const AdminApp = (function() {
       } else {
         list.innerHTML = unreadNotifications.map(n => `
           <div class="notif-item">
-            <strong>🔔 ${n.text}</strong>
+            <strong>🔔 ${escapeHtml(n.text)}</strong>
             <div style="font-size:0.75rem; color:var(--admin-text-muted); margin-top:2px;">${n.time}</div>
           </div>
         `).join('');

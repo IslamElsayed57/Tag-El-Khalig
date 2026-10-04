@@ -51,7 +51,7 @@ const AdminCustomers = (function() {
                   </tr>
                 ` : customers.map(c => `
                   <tr>
-                    <td><strong>${c.name}</strong></td>
+                    <td><strong>${escapeHtml(c.name)}</strong></td>
                     <td dir="ltr" style="font-family:monospace; font-size:0.95rem;">${c.phone}</td>
                     <td><span class="badge-status ready">${c.ordersCount} ${isAr ? 'طلبات' : 'orders'}</span></td>
                     <td><strong style="color:var(--admin-primary);">${c.totalSpend} ${I18N.t('egp')}</strong></td>
@@ -96,7 +96,7 @@ const AdminCustomers = (function() {
         <div class="admin-modal-box">
           <div class="modal-header-admin">
             <div>
-              <h3 style="font-weight:900; font-size:1.3rem; color:var(--admin-primary);">${isAr ? 'سجل طلبات العميل' : 'Customer Order History'}: ${customer.name}</h3>
+              <h3 style="font-weight:900; font-size:1.3rem; color:var(--admin-primary);">${isAr ? 'سجل طلبات العميل' : 'Customer Order History'}: ${escapeHtml(customer.name)}</h3>
               <div dir="ltr" style="font-size:0.9rem; color:var(--admin-text-muted); font-family:monospace;">${customer.phone}</div>
             </div>
             <button type="button" class="drawer-close-btn" onclick="document.getElementById('adminCustomerHistoryModal').classList.remove('active')">✕</button>

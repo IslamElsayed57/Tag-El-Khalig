@@ -229,6 +229,8 @@ async function handle(req, res) {
     const input = await body(req);
     const phone = String(input.customerPhone || '').replace(/\D/g, '');
     if (!/^01\d{9}$/.test(phone) || !String(input.customerName || '').trim() || !Array.isArray(input.items) || !input.items.length) return json(res, 400, { error:'Valid name, Egyptian mobile, and order items are required' });
+    if (String(input.customerName || '').trim().length > 120) return json(res, 400, { error:'Customer name must be 120 characters or fewer' });
+    if (String(input.notes || '').trim().length > 500) return json(res, 400, { error:'Order notes must be 500 characters or fewer' });
     const settings = decode(db.prepare('SELECT data FROM settings WHERE id=1').get().data);
     const products = new Map(parseList('products', true).map(p => [p.id, p]));
     const items = [];
@@ -247,6 +249,7 @@ async function handle(req, res) {
     const branchData = decode(branch.data);
     if (type === 'delivery' && !branchData.deliveryEligible) return json(res, 400, { error:'Selected branch does not provide delivery' });
     if (type === 'delivery' && !String(input.address || '').trim()) return json(res, 400, { error:'A delivery address is required' });
+    if (String(input.address || '').trim().length > 300) return json(res, 400, { error:'Delivery address must be 300 characters or fewer' });
     const createdAt = new Date().toISOString();
     const orderData = { createdAt, customerName:String(input.customerName).trim(), customerPhone:phone, type, branchId:branchData.id, branchNameAr:branchData.nameAr, branchNameEn:branchData.nameEn, deliveryFee, subtotal, total:subtotal+deliveryFee, status:'new', items, address:input.address || null, gpsCoordinates:input.gpsCoordinates || null, notes:String(input.notes || '').trim() };
     const result = db.prepare('INSERT INTO orders(customer_name,customer_phone,branch_id,status,created_at,data) VALUES(?,?,?,?,?,?)').run(orderData.customerName, phone, branchData.id, 'new', createdAt, encode(orderData));
@@ -322,6 +325,7 @@ async function handle(req, res) {
         data = { ...input, id:input.id || `${table.slice(0,-1)}-${randomBytes(8).toString('hex')}` };
       }
       if (table === 'products' && !db.prepare('SELECT id FROM categories WHERE id=?').get(data.categoryId)) return json(res, 400, { error:'Product category does not exist' });
+      if (table === 'products' && String(data.image || '').startsWith('data:') && String(data.image).length > 1_500_000) return json(res, 413, { error:'Product images must be smaller than about 1 MB. Please choose a smaller image.' });
       saveEntity(table, data.id, data);
       publish(eventForTable(table), table === 'settings' ? { settings:data } : { [table.slice(0,-1)]:data });
       return json(res, method === 'POST' ? 201 : 200, data);
@@ -360,7 +364,8 @@ async function handle(req, res) {
     if (!requireAdmin()) return;
     const input = await body(req);
     const before = String(input.before || '');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) return json(res, 400, { error:'Valid cutoff date is required' });
+    const cutoffMs = Date.parse(`${before}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(before) || isNaN(cutoffMs)) return json(res, 400, { error:'Valid cutoff date is required' });
     const result = db.prepare('DELETE FROM orders WHERE created_at<?').run(before);
     return json(res, 200, { ok:true, ordersDeleted:result.changes, eventsDeleted:0 });
   }

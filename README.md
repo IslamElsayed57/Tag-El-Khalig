@@ -65,7 +65,20 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 
 ## Development log (changes applied to this project)
 
-### Latest session — 2026-10-03
+### Latest session — 2026-10-04 (security audit, pass 1 fixes)
+
+1. **Stored-XSS hardening — guest order fields rendered in the admin UI**
+   - `public/admin/js/admin.js` — new global `escapeHtml()` helper (top of file) escaping `& < > " '`; the notification list now renders `escapeHtml(n.text)`.
+   - `public/admin/js/orders.js` — customer name (table row + details modal), delivery address, and notes now pass through `escapeHtml()` at every `innerHTML` sink.
+   - `public/admin/js/customers.js` — customer name in the table and in the history-modal title now escaped.
+   - Server-side caps added to **both** `functions/api/[[path]].js` and `server/server.mjs` on `POST /orders`: `customerName` ≤ 120 chars, `notes` ≤ 500, `address` ≤ 300 (each → `400` above the limit). **Behavior change**: values above these limits used to be accepted unbounded.
+2. **Request body cap enforced while streaming** (`functions/api/[[path]].js` → `body()`): the 2 MB limit was previously checked only against the `Content-Length` header (skipped for chunked uploads); the body is now read chunk-by-chunk and aborted with `413` at 2 MB. An empty body now yields `{}` instead of a 500.
+3. **Parity fixes in `server/server.mjs`**:
+   - `POST /api/orders/cleanup` now requires `Date.parse(before)` to be valid (mirrors production; `2026-99-99` can no longer mass-delete orders via lexicographic comparison).
+   - Product `data:` images longer than 1.5M chars are now rejected with `413` (mirrors production). The Node copy still has no `events` table, so `eventsDeleted` stays `0`.
+   - Verified with the esprima routine above (all five touched files parse).
+
+### Session — 2026-10-03
 
 1. **Mobile "Add to Cart" failure fix (root cause: HTTP 401)**
    - Symptom: on phones the storefront showed "⚠️ An error occurred" after tapping **Add to Cart**; the same flow worked on the owner's desktop.
@@ -117,6 +130,8 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 - **Auth shape**: server routes before the auth gate in `functions/api/[[path]].js` (health, login/logout/me, events, catalogue lists + single GET, settings, `POST /orders`) are public by design — storefront guests depend on them.
 
 ## Known intentionally-unchanged items
+
+- Security audit of 2026-10-04 — **pass 1 findings deliberately left open** (awaiting owner approval): no `try/catch` in `storefront.js`/`customers.js`/`reports.js` render paths (failed loads hang on the loading state); `ensureSchema`/`seed` re-run on every Functions request; reflected search inputs in admin inputs are unescaped (self-XSS only); `verifyPassword` uses a plain string compare; PBKDF2 stays at 10k iterations (CPU budget); `/customers` and `/reports` read all orders without pagination.
 
 - `customers.js` empty-search row (`لا يوجد عملاء يطابقون البحث`) still Arabic-only — it was not part of the photographed modal and was left untouched on request.
 - The English `calculationRule` text still appears in Arabic UI mode when data comes from the API (legacy behavior, accepted).
