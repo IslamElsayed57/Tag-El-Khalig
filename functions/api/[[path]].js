@@ -130,11 +130,11 @@ async function addEvent(env, type, payload, branchId=null) {
 function eventPayload(table, data) { return {[table.slice(0,-1)]:data}; }
 function userBranch(user, branchId) { return user?.role==='admin' || user?.branchId===branchId; }
 
+let schemaReady=false;
 export async function onRequest(context) {
   const {request,env}=context;
   try {
-    await ensureSchema(env.DB);
-    await seed(env);
+    if(!schemaReady){await ensureSchema(env.DB);await seed(env);schemaReady=true;}
     const url=new URL(request.url), path='/'+(url.pathname.split('/').slice(2).join('/')||''), method=request.method;
     const db=env.DB;
     if(method==='OPTIONS') return new Response(null,{status:204,headers:{Allow:'GET, POST, PUT, PATCH, DELETE, OPTIONS'}});

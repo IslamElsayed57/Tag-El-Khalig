@@ -18,9 +18,18 @@ const AdminReports = (function() {
 
       const isAr = I18N.currentLang === 'ar';
       const currentUser = AdminApp.getCurrentUser();
-      const branches = await TajAPI.getBranches();
-
-      const reportData = await TajAPI.getReports(reportFilters);
+      let branches, reportData;
+      try {
+        branches = await TajAPI.getBranches();
+        reportData = await TajAPI.getReports(reportFilters);
+      } catch (err) {
+        console.error('Taj reports load failed:', err);
+        container.innerHTML = `
+          <div style="text-align:center; padding:3rem; color:var(--admin-text-muted);">
+            ${isAr ? 'تعذر تحميل التقرير. تحقق من الاتصال ثم أعد المحاولة.' : 'Failed to load the report. Check your connection and try again.'}
+          </div>`;
+        return;
+      }
 
       container.innerHTML = `
         <!-- Print-only Formal Letterhead Header (seen only when printing) -->

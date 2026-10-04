@@ -77,6 +77,10 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
    - `POST /api/orders/cleanup` now requires `Date.parse(before)` to be valid (mirrors production; `2026-99-99` can no longer mass-delete orders via lexicographic comparison).
    - Product `data:` images longer than 1.5M chars are now rejected with `413` (mirrors production). The Node copy still has no `events` table, so `eventsDeleted` stays `0`.
    - Verified with the esprima routine above (all five touched files parse).
+4. **Safe cleanups (pass 2, approved): error handling + per-isolate schema flag**
+   - `public/assets/js/storefront.js` — `loadPageSpecificContent()` now wraps the original body (renamed `loadPageContent()`) in try/catch; new `showLoadError()` fills a still-empty or still-loading page container with a bilingual error box instead of hanging on "جاري تحميل الحلويات...". The three page-render calls inside are now `await`ed so render failures reach the catch. Filters/search handlers still call `renderCategoriesPage()` unawaited — on those re-renders existing content stays put on failure (intentional).
+   - `public/admin/js/customers.js` and `reports.js` — the `TajAPI` fetches are wrapped in try/catch that renders an in-container error message (same inline style as the existing empty states) and returns; previously a failed load left a blank/silent view.
+   - `functions/api/[[path]].js` — module-level `schemaReady` flag: `ensureSchema` + `seed` now run once per isolate instead of on every request (~4 fewer D1 reads per call). Both functions are idempotent and `ensureSchema` errors leave the flag false so the next request retries.
 
 ### Session — 2026-10-03
 
@@ -131,7 +135,7 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 
 ## Known intentionally-unchanged items
 
-- Security audit of 2026-10-04 — **pass 1 findings deliberately left open** (awaiting owner approval): no `try/catch` in `storefront.js`/`customers.js`/`reports.js` render paths (failed loads hang on the loading state); `ensureSchema`/`seed` re-run on every Functions request; reflected search inputs in admin inputs are unescaped (self-XSS only); `verifyPassword` uses a plain string compare; PBKDF2 stays at 10k iterations (CPU budget); `/customers` and `/reports` read all orders without pagination.
+- Security audit of 2026-10-04 — **findings deliberately left open** (awaiting owner approval): reflected search inputs in admin inputs are unescaped (self-XSS only); `verifyPassword` uses a plain string compare; PBKDF2 stays at 10k iterations (Workers CPU budget); `/customers` and `/reports` read all orders without pagination (fine at current volume).
 
 - `customers.js` empty-search row (`لا يوجد عملاء يطابقون البحث`) still Arabic-only — it was not part of the photographed modal and was left untouched on request.
 - The English `calculationRule` text still appears in Arabic UI mode when data comes from the API (legacy behavior, accepted).

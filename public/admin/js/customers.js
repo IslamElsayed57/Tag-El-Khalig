@@ -12,7 +12,17 @@ const AdminCustomers = (function() {
       if (!container) return;
 
       const isAr = I18N.currentLang === 'ar';
-      const customers = await TajAPI.getCustomers(customerSearch);
+      let customers;
+      try {
+        customers = await TajAPI.getCustomers(customerSearch);
+      } catch (err) {
+        console.error('Taj customers load failed:', err);
+        container.innerHTML = `
+          <div style="text-align:center; padding:3rem; color:var(--admin-text-muted);">
+            ${isAr ? 'تعذر تحميل بيانات العملاء. تحقق من الاتصال ثم أعد المحاولة.' : 'Failed to load customers. Check your connection and try again.'}
+          </div>`;
+        return;
+      }
 
       container.innerHTML = `
         <div class="admin-toolbar">

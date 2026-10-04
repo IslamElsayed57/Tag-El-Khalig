@@ -61,6 +61,15 @@ const Storefront = (function() {
     },
 
     async loadPageSpecificContent() {
+      try {
+        await this.loadPageContent();
+      } catch (err) {
+        console.error('Taj storefront content load failed:', err);
+        this.showLoadError();
+      }
+    },
+
+    async loadPageContent() {
       const isAr = I18N.currentLang === 'ar';
       const settings = await TajAPI.getSettings();
 
@@ -109,16 +118,30 @@ const Storefront = (function() {
 
       // Check current page
       if (document.getElementById('featuredProductsContainer')) {
-        this.renderHomePage(settings);
+        await this.renderHomePage(settings);
       }
 
       if (document.getElementById('categoriesMenuContainer')) {
-        this.renderCategoriesPage();
+        await this.renderCategoriesPage();
       }
 
       if (document.getElementById('branchesListContainer')) {
-        this.renderBranchesPage(settings);
+        await this.renderBranchesPage(settings);
       }
+    },
+
+    showLoadError() {
+      const isAr = I18N.currentLang === 'ar';
+      const message = isAr
+        ? 'تعذر تحميل البيانات. تحقق من اتصالك ثم أعد تحميل الصفحة.'
+        : 'Could not load data. Check your connection and reload the page.';
+      const html = `<div class="no-results-box"><div class="no-results-icon">⚠️</div><p>${message}</p></div>`;
+      ['featuredProductsContainer', 'categoriesMenuContainer', 'branchesListContainer'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const stillLoading = el.querySelector('[data-i18n="loading"]');
+        if (stillLoading || !el.innerHTML.trim()) el.innerHTML = html;
+      });
     },
 
     // 1. HOME PAGE
