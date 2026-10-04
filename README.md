@@ -65,7 +65,7 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 
 ## Development log (changes applied to this project)
 
-### Latest session — 2026-10-04 (security audit, pass 1 fixes)
+### Latest session — 2026-10-04 (two-pass security audit + approved fixes, PBKDF2 upgrade, SQL aggregation)
 
 1. **Stored-XSS hardening — guest order fields rendered in the admin UI**
    - `public/admin/js/admin.js` — new global `escapeHtml()` helper (top of file) escaping `& < > " '`; the notification list now renders `escapeHtml(n.text)`.
@@ -92,6 +92,11 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
    - `public/admin/js/customers.js` — toolbar count uses `totalCount`; the table renders 50 customers per page with the same pagination bar style as the orders view (`goToPage`); searching resets to page 1. The history modal now loads on demand (customer via `getCustomers(phone)` with an exact-phone `find`, orders via `getOrders({phone}, 1, 1000)`) instead of piggy-backing on the list response, and gained a try/catch.
    - `public/assets/js/api.js` — `getCustomers(search, page, limit)` returns the new envelope in both remote and local-mock modes (the mock paginates in JS); `getOrders` forwards `phone` in both modes.
    - Unchanged: branch-user scoping, search semantics (name/phone `LIKE`), spend-excludes-cancelled, newest-first ordering, reports numbers/formula. `json_extract` is available on D1 and on Node's built-in SQLite. Verified with esprima.
+
+**Audit status at the end of this session (2026-10-04)**
+- The audit ran in two passes: first a full written report with worked examples (zero files touched), then fixes applied group-by-group only after explicit owner approval. All seven log items above are deployed and verified by the owner.
+- Pass-1 inventory: 11 security findings (S1–S11), 3 duplication notes (D1–D3), 3 refactor notes (R1–R3), 2 reusable helpers (U1–U2 — `escapeHtml()` and the streamed `body()` now exist), 6 health checks (H1–H6).
+- **Still open: S5 only** — see "Known intentionally-unchanged" below (`verifyPassword` plain string compare in the Functions copy; documented as practically unexploitable over the network). Everything else is either fixed (log items 1–7 + earlier sessions) or closed by decision: D3 (unifying Node scrypt with Functions PBKDF2) rejected, D1's three API copies are this repo's deliberate parity convention, R1/R2 accepted as-is.
 
 ### Session — 2026-10-03
 
