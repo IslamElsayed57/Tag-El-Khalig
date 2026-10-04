@@ -84,16 +84,25 @@ async function seed(env) {
 function b64(bytes) { return btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,''); }
 function unb64(value) { const s=String(value).replaceAll('-','+').replaceAll('_','/'); return Uint8Array.from(atob(s+'='.repeat((4-s.length%4)%4)), c=>c.charCodeAt(0)); }
 async function digest(value) { return b64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))); }
-async function hashPassword(password, salt = crypto.getRandomValues(new Uint8Array(16))) {
+const PASSWORD_ITERATIONS = 20000;
+const LEGACY_PASSWORD_ITERATIONS = 10000;
+async function pbkdf2Bits(password, salt, iterations) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const result = await crypto.subtle.deriveBits({name:'PBKDF2', salt, iterations:10000, hash:'SHA-256'}, key, 256);
-  return `${b64(salt)}:${b64(result)}`;
+  const result = await crypto.subtle.deriveBits({name:'PBKDF2', salt, iterations, hash:'SHA-256'}, key, 256);
+  return b64(result);
+}
+async function hashPassword(password, salt = crypto.getRandomValues(new Uint8Array(16))) {
+  return `${PASSWORD_ITERATIONS}:${b64(salt)}:${await pbkdf2Bits(password, salt, PASSWORD_ITERATIONS)}`;
 }
 async function verifyPassword(password, stored) {
-  const [salt, expected] = String(stored || '').split(':');
-  if (!salt || !expected) return false;
-  const actual = await hashPassword(password, unb64(salt));
-  return actual === stored;
+  const parts = String(stored || '').split(':');
+  if (parts.length === 3) {
+    const iterations = Number(parts[0]);
+    if (!Number.isInteger(iterations) || iterations < 1000 || iterations > 100000) return false;
+    return `${parts[0]}:${parts[1]}:${await pbkdf2Bits(password, unb64(parts[1]), iterations)}` === stored;
+  }
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return false;
+  return await pbkdf2Bits(password, unb64(parts[0]), LEGACY_PASSWORD_ITERATIONS) === parts[1];
 }
 function cookies(request) {
   return Object.fromEntries((request.headers.get('Cookie') || '').split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf('=');return [x.slice(0,i),decodeURIComponent(x.slice(i+1))];}));
@@ -156,6 +165,7 @@ export async function onRequest(context) {
         return json({error:'Invalid username or password'},401);
       }
       await db.prepare('DELETE FROM login_attempts WHERE ip_hash=?').bind(ipHash).run();
+      if(String(row.password_hash).split(':').length===2){try{await db.prepare('UPDATE users SET password_hash=? WHERE id=?').bind(await hashPassword(String(input.password||'')),row.id).run();}catch{}}
       const token=b64(crypto.getRandomValues(new Uint8Array(32)));
       await db.prepare('INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,?,?)').bind(await digest(token),row.id,Date.now()+7*86400000).run();
       return json({user:safeUser(row)},200,{ 'Set-Cookie':`taj_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Secure; Max-Age=604800` });
@@ -236,7 +246,7 @@ export async function onRequest(context) {
     if(path==='/orders'&&method==='GET'){
       const page=Math.max(1,Number(url.searchParams.get('page')||1)),limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit')||20))),clauses=[],values=[];
       if(!isAdmin){clauses.push('branch_id=?');values.push(user.branchId||'');}else if(url.searchParams.get('branchId')&&url.searchParams.get('branchId')!=='all'){clauses.push('branch_id=?');values.push(url.searchParams.get('branchId'));}
-      const status=url.searchParams.get('status');if(status&&status!=='all'){clauses.push('status=?');values.push(status);}const q=url.searchParams.get('search');if(q){clauses.push('(customer_name LIKE ? OR customer_phone LIKE ? OR CAST(id AS TEXT) LIKE ?)');values.push(`%${q}%`,`%${q}%`,`%${q}%`);}
+      const status=url.searchParams.get('status');if(status&&status!=='all'){clauses.push('status=?');values.push(status);}const q=url.searchParams.get('search');if(q){clauses.push('(customer_name LIKE ? OR customer_phone LIKE ? OR CAST(id AS TEXT) LIKE ?)');values.push(`%${q}%`,`%${q}%`,`%${q}%`);}const phone=url.searchParams.get('phone');if(phone){clauses.push('customer_phone=?');values.push(phone);}
       const range=url.searchParams.get('dateRange'),today=new Date().toISOString().slice(0,10);if(range==='today'){clauses.push('created_at>=?');values.push(`${today}T00:00:00.000Z`);}if(range==='yesterday'){const d=new Date();d.setUTCDate(d.getUTCDate()-1);clauses.push('created_at>=? AND created_at<?');values.push(`${d.toISOString().slice(0,10)}T00:00:00.000Z`,`${today}T00:00:00.000Z`);}if(range==='last7'){clauses.push('created_at>=?');values.push(new Date(Date.now()-7*86400000).toISOString());}if(range==='thisMonth'){clauses.push('created_at>=?');values.push(`${today.slice(0,7)}-01T00:00:00.000Z`);}
       const where=clauses.length?`WHERE ${clauses.join(' AND ')}`:'',count=await db.prepare(`SELECT COUNT(*) AS n FROM orders ${where}`).bind(...values).first(),rows=await db.prepare(`SELECT data FROM orders ${where} ORDER BY id DESC LIMIT ? OFFSET ?`).bind(...values,limit,(page-1)*limit).all();return json({orders:rows.results.map(r=>decode(r.data)),totalCount:count.n,totalPages:Math.ceil(count.n/limit)||1,currentPage:page,limit});
     }
@@ -253,8 +263,26 @@ export async function onRequest(context) {
     if(orderMatch&&method==='GET'){const row=await db.prepare('SELECT * FROM orders WHERE id=?').bind(Number(orderMatch[1])).first();if(!row||(!isAdmin&&row.branch_id!==user.branchId))return json({error:'Order not found'},404);return json(decode(row.data));}
     const statusMatch=path.match(/^\/orders\/([^/]+)\/status$/);
     if(statusMatch&&method==='PATCH'){const input=await body(request),id=Number(statusMatch[1]),row=await db.prepare('SELECT * FROM orders WHERE id=?').bind(id).first();if(!row||(!isAdmin&&row.branch_id!==user.branchId))return json({error:'Order not found'},404);if(!['new','ready','completed','cancelled'].includes(input.status))return json({error:'Invalid order status'},400);const order={...decode(row.data),status:input.status,updatedAt:nowIso()};await db.prepare('UPDATE orders SET status=?,data=? WHERE id=?').bind(input.status,encode(order),id).run();await addEvent(env,'taj_order_status_changed',{order,branchId:row.branch_id,newStatus:input.status},row.branch_id);return json(order);}
-    if(path==='/customers'&&method==='GET'){const rows=await db.prepare(`SELECT data FROM orders ${isAdmin?'':'WHERE branch_id=?'} ORDER BY id DESC`).bind(...(isAdmin?[]:[user.branchId||''])).all(),q=(url.searchParams.get('search')||'').toLowerCase(),map=new Map();for(const r of rows.results){const o=decode(r.data);if(!map.has(o.customerPhone))map.set(o.customerPhone,{phone:o.customerPhone,name:o.customerName,ordersCount:0,totalSpend:0,lastOrderDate:o.createdAt,orders:[]});const c=map.get(o.customerPhone);c.ordersCount++;if(o.status!=='cancelled')c.totalSpend+=o.total;c.orders.push(o);if(new Date(o.createdAt)>new Date(c.lastOrderDate)){c.name=o.customerName;c.lastOrderDate=o.createdAt;}}return json([...map.values()].filter(c=>!q||c.name.toLowerCase().includes(q)||c.phone.includes(q)));}
-    if(path==='/reports'&&method==='GET'){const conditions=["status IN ('completed','ready')"],values=[];if(!isAdmin){conditions.push('branch_id=?');values.push(user.branchId||'');}else if(url.searchParams.get('branchId')&&url.searchParams.get('branchId')!=='all'){conditions.push('branch_id=?');values.push(url.searchParams.get('branchId'));}const start=url.searchParams.get('startDate'),end=url.searchParams.get('endDate'),range=url.searchParams.get('dateRange'),today=new Date().toISOString().slice(0,10);if(range==='today'){conditions.push('created_at>=?');values.push(`${today}T00:00:00.000Z`);}else if(range==='thisMonth'){conditions.push('created_at>=?');values.push(`${today.slice(0,7)}-01T00:00:00.000Z`);}else if(range==='custom'&&start){conditions.push('created_at>=?');values.push(new Date(start).toISOString());}if(range==='custom'&&end){conditions.push('created_at<=?');values.push(new Date(`${end}T23:59:59.999`).toISOString());}const orders=(await db.prepare(`SELECT data FROM orders WHERE ${conditions.join(' AND ')}`).bind(...values).all()).results.map(r=>decode(r.data)),branches=await list(env,'branches'),branchFilter=(!isAdmin?String(user.branchId||''):(url.searchParams.get('branchId')&&url.searchParams.get('branchId')!=='all'?url.searchParams.get('branchId'):null)),breakdown=branches.filter(b=>branchFilter===null||b.id===branchFilter).map(b=>({branchId:b.id,nameAr:b.nameAr,nameEn:b.nameEn,sales:0,ordersCount:0}));for(const o of orders){const s=breakdown.find(x=>x.branchId===o.branchId);if(s){s.sales+=o.total;s.ordersCount++;}}const totalSales=orders.reduce((s,o)=>s+o.total,0),ordersCount=orders.length;return json({totalSales,ordersCount,averageOrderValue:ordersCount?Math.round(totalSales/ordersCount*100)/100:0,branchBreakdown:breakdown,calculationRule:'Only Completed and Ready orders are counted. New and Cancelled orders are excluded from sales totals.'});}
+    if(path==='/customers'&&method==='GET'){
+      const page=Math.max(1,Number(url.searchParams.get('page')||1)),limit=Math.min(200,Math.max(1,Number(url.searchParams.get('limit')||50))),clauses=[],values=[];
+      if(!isAdmin){clauses.push('branch_id=?');values.push(user.branchId||'');}
+      const q=url.searchParams.get('search');if(q){clauses.push('(customer_name LIKE ? OR customer_phone LIKE ?)');values.push(`%${q}%`,`%${q}%`);}
+      const where=clauses.length?`WHERE ${clauses.join(' AND ')}`:'';
+      const count=await db.prepare(`SELECT COUNT(DISTINCT customer_phone) AS n FROM orders ${where}`).bind(...values).first();
+      const rows=await db.prepare(`SELECT customer_phone,customer_name,created_at,COUNT(*) AS orders_count,COALESCE(SUM(CASE WHEN status='cancelled' THEN 0 ELSE json_extract(data,'$.total') END),0) AS total_spend FROM orders ${where} GROUP BY customer_phone ORDER BY MAX(id) DESC LIMIT ? OFFSET ?`).bind(...values,limit,(page-1)*limit).all();
+      return json({customers:rows.results.map(r=>({phone:r.customer_phone,name:r.customer_name,ordersCount:r.orders_count,totalSpend:r.total_spend,lastOrderDate:r.created_at})),totalCount:count.n,totalPages:Math.ceil(count.n/limit)||1,currentPage:page,limit});
+    }
+    if(path==='/reports'&&method==='GET'){
+      const conditions=["status IN ('completed','ready')"],values=[];if(!isAdmin){conditions.push('branch_id=?');values.push(user.branchId||'');}else if(url.searchParams.get('branchId')&&url.searchParams.get('branchId')!=='all'){conditions.push('branch_id=?');values.push(url.searchParams.get('branchId'));}
+      const start=url.searchParams.get('startDate'),end=url.searchParams.get('endDate'),range=url.searchParams.get('dateRange'),today=new Date().toISOString().slice(0,10);
+      if(range==='today'){conditions.push('created_at>=?');values.push(`${today}T00:00:00.000Z`);}else if(range==='thisMonth'){conditions.push('created_at>=?');values.push(`${today.slice(0,7)}-01T00:00:00.000Z`);}else if(range==='custom'&&start){conditions.push('created_at>=?');values.push(new Date(start).toISOString());}if(range==='custom'&&end){conditions.push('created_at<=?');values.push(new Date(`${end}T23:59:59.999`).toISOString());}
+      const where=`WHERE ${conditions.join(' AND ')}`;
+      const agg=await db.prepare(`SELECT COUNT(*) AS n,COALESCE(SUM(json_extract(data,'$.total')),0) AS s FROM orders ${where}`).bind(...values).first();
+      const groups=(await db.prepare(`SELECT branch_id,COUNT(*) AS n,COALESCE(SUM(json_extract(data,'$.total')),0) AS s FROM orders ${where} GROUP BY branch_id`).bind(...values).all()).results;
+      const byBranch=new Map(groups.map(g=>[g.branch_id,g])),branches=await list(env,'branches'),branchFilter=(!isAdmin?String(user.branchId||''):(url.searchParams.get('branchId')&&url.searchParams.get('branchId')!=='all'?url.searchParams.get('branchId'):null));
+      const breakdown=branches.filter(b=>branchFilter===null||b.id===branchFilter).map(b=>{const g=byBranch.get(b.id);return {branchId:b.id,nameAr:b.nameAr,nameEn:b.nameEn,sales:g?g.s:0,ordersCount:g?g.n:0};});
+      return json({totalSales:agg.s,ordersCount:agg.n,averageOrderValue:agg.n?Math.round(agg.s/agg.n*100)/100:0,branchBreakdown:breakdown,calculationRule:'Only Completed and Ready orders are counted. New and Cancelled orders are excluded from sales totals.'});
+    }
     return json({error:'API route not found'},404);
   } catch(error) {
     if(error?.status) return json({error:error.message},error.status);

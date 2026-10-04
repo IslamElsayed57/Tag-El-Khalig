@@ -348,6 +348,7 @@ async function handle(req, res) {
     else if (url.searchParams.get('branchId') && url.searchParams.get('branchId') !== 'all') { clauses.push('branch_id=?'); values.push(url.searchParams.get('branchId')); }
     const status = url.searchParams.get('status'); if (status && status !== 'all') { clauses.push('status=?'); values.push(status); }
     const q = url.searchParams.get('search'); if (q) { clauses.push('(customer_name LIKE ? OR customer_phone LIKE ? OR CAST(id AS TEXT) LIKE ?)'); values.push(`%${q}%`,`%${q}%`,`%${q}%`); }
+    const phone = url.searchParams.get('phone'); if (phone) { clauses.push('customer_phone=?'); values.push(phone); }
     const range = url.searchParams.get('dateRange'); const now = new Date();
     const day = now.toISOString().slice(0,10);
     if (range === 'today') { clauses.push('created_at>=?'); values.push(`${day}T00:00:00.000Z`); }
@@ -388,14 +389,14 @@ async function handle(req, res) {
   }
 
   if (path === '/api/customers' && method === 'GET') {
-    const rows = db.prepare(`SELECT data FROM orders ${isAdmin ? '' : 'WHERE branch_id=?'} ORDER BY id DESC`).all(...(isAdmin ? [] : [user.branchId || ''])).map(r=>decode(r.data));
-    const q = (url.searchParams.get('search') || '').toLowerCase(); const map = new Map();
-    for (const order of rows) {
-      if (!map.has(order.customerPhone)) map.set(order.customerPhone, { phone:order.customerPhone, name:order.customerName, ordersCount:0, totalSpend:0, lastOrderDate:order.createdAt, orders:[] });
-      const customer = map.get(order.customerPhone); customer.ordersCount++; if (order.status !== 'cancelled') customer.totalSpend += order.total; customer.orders.push(order);
-      if (new Date(order.createdAt) > new Date(customer.lastOrderDate)) { customer.name=order.customerName; customer.lastOrderDate=order.createdAt; }
-    }
-    return json(res, 200, [...map.values()].filter(c=>!q || c.name.toLowerCase().includes(q) || c.phone.includes(q)));
+    const page = Math.max(1, Number(url.searchParams.get('page') || 1)); const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') || 50)));
+    const clauses = []; const values = [];
+    if (!isAdmin) { clauses.push('branch_id=?'); values.push(user.branchId || ''); }
+    const q = url.searchParams.get('search'); if (q) { clauses.push('(customer_name LIKE ? OR customer_phone LIKE ?)'); values.push(`%${q}%`, `%${q}%`); }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    const count = db.prepare(`SELECT COUNT(DISTINCT customer_phone) AS n FROM orders ${where}`).get(...values).n;
+    const rows = db.prepare(`SELECT customer_phone,customer_name,created_at,COUNT(*) AS orders_count,COALESCE(SUM(CASE WHEN status='cancelled' THEN 0 ELSE json_extract(data,'$.total') END),0) AS total_spend FROM orders ${where} GROUP BY customer_phone ORDER BY MAX(id) DESC LIMIT ? OFFSET ?`).all(...values, limit, (page - 1) * limit);
+    return json(res, 200, { customers: rows.map(r => ({ phone:r.customer_phone, name:r.customer_name, ordersCount:r.orders_count, totalSpend:r.total_spend, lastOrderDate:r.created_at })), totalCount: count, totalPages: Math.ceil(count / limit) || 1, currentPage: page, limit });
   }
   if (path === '/api/reports' && method === 'GET') {
     const conditions = ["status IN ('completed','ready')"]; const values=[];
@@ -407,11 +408,13 @@ async function handle(req, res) {
     else if (range==='thisMonth') { conditions.push('created_at>=?'); values.push(`${today.slice(0,7)}-01T00:00:00.000Z`); }
     else if (range==='custom' && start) { conditions.push('created_at>=?'); values.push(new Date(start).toISOString()); }
     if (range==='custom' && end) { conditions.push('created_at<=?'); values.push(new Date(`${end}T23:59:59.999`).toISOString()); }
-    const orders=db.prepare(`SELECT data FROM orders WHERE ${conditions.join(' AND ')}`).all(...values).map(r=>decode(r.data));
-    const branches=parseList('branches'); const branchFilter=(!isAdmin?String(user.branchId||''):(url.searchParams.get('branchId')&&url.searchParams.get('branchId')!=='all'?url.searchParams.get('branchId'):null)); const breakdown=branches.filter(b=>branchFilter===null||b.id===branchFilter).map(b=>({branchId:b.id,nameAr:b.nameAr,nameEn:b.nameEn,sales:0,ordersCount:0}));
-    for(const order of orders){const stat=breakdown.find(x=>x.branchId===order.branchId);if(stat){stat.sales+=order.total;stat.ordersCount++;}}
-    const totalSales=orders.reduce((sum,o)=>sum+o.total,0); const ordersCount=orders.length;
-    return json(res,200,{totalSales,ordersCount,averageOrderValue:ordersCount?Math.round(totalSales/ordersCount*100)/100:0,branchBreakdown:breakdown,calculationRule:'Only Completed and Ready orders are counted. New and Cancelled orders are excluded from sales totals.'});
+    const where = `WHERE ${conditions.join(' AND ')}`;
+    const agg = db.prepare(`SELECT COUNT(*) AS n,COALESCE(SUM(json_extract(data,'$.total')),0) AS s FROM orders ${where}`).get(...values);
+    const groups = db.prepare(`SELECT branch_id,COUNT(*) AS n,COALESCE(SUM(json_extract(data,'$.total')),0) AS s FROM orders ${where} GROUP BY branch_id`).all(...values);
+    const byBranch = new Map(groups.map(g => [g.branch_id, g]));
+    const branches=parseList('branches'); const branchFilter=(!isAdmin?String(user.branchId||''):(url.searchParams.get('branchId')&&url.searchParams.get('branchId')!=='all'?url.searchParams.get('branchId'):null));
+    const breakdown=branches.filter(b=>branchFilter===null||b.id===branchFilter).map(b=>{const g=byBranch.get(b.id);return {branchId:b.id,nameAr:b.nameAr,nameEn:b.nameEn,sales:g?g.s:0,ordersCount:g?g.n:0};});
+    return json(res,200,{totalSales:agg.s,ordersCount:agg.n,averageOrderValue:agg.n?Math.round(agg.s/agg.n*100)/100:0,branchBreakdown:breakdown,calculationRule:'Only Completed and Ready orders are counted. New and Cancelled orders are excluded from sales totals.'});
   }
 
   return json(res, 404, { error:'API route not found' });

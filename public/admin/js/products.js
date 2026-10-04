@@ -86,7 +86,7 @@ const AdminProducts = (function() {
           <div class="toolbar-filters">
             <div class="search-box-admin">
               <span class="search-icon">🔍</span>
-              <input type="text" id="adminProdSearchInput" value="${productSearch}" placeholder="${isAr ? 'بحث عن منتج بالاسم أو الوصف...' : 'Search products...'}">
+              <input type="text" id="adminProdSearchInput" value="${escapeHtml(productSearch)}" placeholder="${isAr ? 'بحث عن منتج بالاسم أو الوصف...' : 'Search products...'}">
             </div>
 
             <select class="select-admin" id="adminProdCatFilter">

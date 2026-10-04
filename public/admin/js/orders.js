@@ -81,7 +81,7 @@ const AdminOrders = (function() {
           <div class="toolbar-filters">
             <div class="search-box-admin">
               <span class="search-icon">🔍</span>
-              <input type="text" id="orderSearchInput" value="${filters.search}" placeholder="${isAr ? 'بحث باسم العميل أو رقم الهاتف أو رقم الطلب...' : 'Search by customer, phone, or order ID...'}">
+              <input type="text" id="orderSearchInput" value="${escapeHtml(filters.search)}" placeholder="${isAr ? 'بحث باسم العميل أو رقم الهاتف أو رقم الطلب...' : 'Search by customer, phone, or order ID...'}">
             </div>
 
             <select class="select-admin" id="orderStatusFilter">

@@ -5,6 +5,8 @@
 
 const AdminCustomers = (function() {
   let customerSearch = '';
+  let currentPage = 1;
+  const pageSize = 50;
 
   return {
     async render() {
@@ -12,9 +14,9 @@ const AdminCustomers = (function() {
       if (!container) return;
 
       const isAr = I18N.currentLang === 'ar';
-      let customers;
+      let result;
       try {
-        customers = await TajAPI.getCustomers(customerSearch);
+        result = await TajAPI.getCustomers(customerSearch, currentPage, pageSize);
       } catch (err) {
         console.error('Taj customers load failed:', err);
         container.innerHTML = `
@@ -23,18 +25,21 @@ const AdminCustomers = (function() {
           </div>`;
         return;
       }
+      const customers = result.customers || [];
+      const totalCount = result.totalCount || 0;
+      const totalPages = result.totalPages || 1;
 
       container.innerHTML = `
         <div class="admin-toolbar">
           <div class="toolbar-filters">
             <div class="search-box-admin">
               <span class="search-icon">🔍</span>
-              <input type="text" id="customerSearchInput" value="${customerSearch}" placeholder="${isAr ? 'بحث باسم العميل أو رقم الهاتف...' : 'Search customer by name or phone...'}">
+              <input type="text" id="customerSearchInput" value="${escapeHtml(customerSearch)}" placeholder="${isAr ? 'بحث باسم العميل أو رقم الهاتف...' : 'Search customer by name or phone...'}">
             </div>
           </div>
           <div class="toolbar-actions">
             <span style="font-weight:700; color:var(--admin-text-muted);">
-              ${customers.length} ${isAr ? 'عميل مسجل' : 'Registered Customers'}
+              ${totalCount} ${isAr ? 'عميل مسجل' : 'Registered Customers'}
             </span>
           </div>
         </div>
@@ -76,6 +81,21 @@ const AdminCustomers = (function() {
               </tbody>
             </table>
           </div>
+
+          <div class="pagination-wrapper">
+            <div>
+              <span>عرض <strong>${customers.length}</strong> من إجمالي <strong>${totalCount}</strong> عميل (${pageSize} ${isAr ? 'عميل بالصفحة' : 'customers per page'})</span>
+            </div>
+            <div class="pagination-controls">
+              <button type="button" class="page-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="AdminCustomers.goToPage(${currentPage - 1})">
+                ${isAr ? 'السابق' : 'Previous'}
+              </button>
+              <span style="padding:0 0.5rem; font-weight:700;">${currentPage} / ${totalPages}</span>
+              <button type="button" class="page-btn" ${currentPage >= totalPages ? 'disabled' : ''} onclick="AdminCustomers.goToPage(${currentPage + 1})">
+                ${isAr ? 'التالي' : 'Next'}
+              </button>
+            </div>
+          </div>
         </div>
       `;
 
@@ -83,17 +103,30 @@ const AdminCustomers = (function() {
       if (searchInput) {
         searchInput.addEventListener('input', (e) => {
           customerSearch = e.target.value;
+          currentPage = 1;
           this.render();
         });
       }
     },
 
-    async viewCustomerHistory(phone) {
-      const customers = await TajAPI.getCustomers();
-      const customer = customers.find(c => c.phone === phone);
-      if (!customer) return;
+    goToPage(page) {
+      currentPage = page;
+      this.render();
+    },
 
+    async viewCustomerHistory(phone) {
       const isAr = I18N.currentLang === 'ar';
+      let customer;
+      try {
+        const found = await TajAPI.getCustomers(phone, 1, 20);
+        customer = (found.customers || []).find(c => c.phone === phone);
+        if (!customer) return;
+        const history = await TajAPI.getOrders({ phone }, 1, 1000);
+        customer = { ...customer, orders: history.orders || [] };
+      } catch (err) {
+        console.error('Taj customer history load failed:', err);
+        return;
+      }
       let modal = document.getElementById('adminCustomerHistoryModal');
       if (!modal) {
         modal = document.createElement('div');

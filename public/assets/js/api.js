@@ -926,6 +926,10 @@ const TajAPI = (function() {
         orders = orders.filter(o => o.status === filters.status);
       }
 
+      if (filters.phone) {
+        orders = orders.filter(o => o.customerPhone === filters.phone);
+      }
+
       if (filters.search) {
         const query = filters.search.toLowerCase().trim();
         orders = orders.filter(o => 
@@ -1036,7 +1040,7 @@ const TajAPI = (function() {
     },
 
     // Customers cumulative aggregation
-    async getCustomers(searchQuery = '') {
+    async getCustomers(searchQuery = '', page = 1, limit = 50) {
       const orders = getStored(STORAGE_KEYS.ORDERS, defaultOrders);
       const currentUser = await this.getCurrentUser();
       
@@ -1085,7 +1089,10 @@ const TajAPI = (function() {
       }
 
       customerList.sort((a, b) => new Date(b.lastOrderDate) - new Date(a.lastOrderDate));
-      return customerList;
+      const totalCount = customerList.length;
+      const totalPages = Math.ceil(totalCount / limit) || 1;
+      const currentPage = Math.max(1, Number(page) || 1);
+      return { customers: customerList.slice((currentPage - 1) * limit, currentPage * limit), totalCount, totalPages, currentPage, limit };
     },
 
     // Reports calculation
@@ -1292,7 +1299,7 @@ const TajAPI = (function() {
     async updateBranch(id, data) { return request(`/branches/${encodeURIComponent(id)}`, {method:'PUT',body:JSON.stringify(data)}); },
     async getSettings() { return request('/settings'); },
     async updateSettings(data) { return request('/settings', {method:'PUT',body:JSON.stringify(data)}); },
-    async getOrders(filters = {}, page = 1, limit = 20) { return request(`/orders${query({page,limit,branchId:filters.branchId,status:filters.status,search:filters.search,dateRange:filters.dateRange,startDate:filters.startDate,endDate:filters.endDate})}`); },
+    async getOrders(filters = {}, page = 1, limit = 20) { return request(`/orders${query({page,limit,branchId:filters.branchId,status:filters.status,search:filters.search,phone:filters.phone,dateRange:filters.dateRange,startDate:filters.startDate,endDate:filters.endDate})}`); },
     async getOrderById(id) { return request(`/orders/${encodeURIComponent(id)}`); },
     async createOrder(data) {
       const order = await request('/orders', {method:'POST',body:JSON.stringify(data)});
@@ -1309,7 +1316,7 @@ const TajAPI = (function() {
     async cleanupOrders(before) {
       return request('/orders/cleanup', { method:'POST', body:JSON.stringify({ before }) });
     },
-    async getCustomers(search = '') { return request(`/customers${query({search})}`); },
+    async getCustomers(search = '', page = 1, limit = 50) { return request(`/customers${query({search,page,limit})}`); },
     async getReports(filters = {}) { return request(`/reports${query({branchId:filters.branchId,dateRange:filters.dateRange,startDate:filters.startDate,endDate:filters.endDate})}`); }
   };
   connectEvents();
