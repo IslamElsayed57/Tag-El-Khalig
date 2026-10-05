@@ -242,8 +242,8 @@ html[dir="rtl"] .hero-section {
 
 /* New arrivals banner (products flagged as new in the dashboard) */
 .new-arrivals-section {
-  background: linear-gradient(135deg, rgba(228, 0, 124, 0.06), rgba(255, 145, 0, 0.06));
-  border-top: 3px solid var(--primary);
+  background: var(--primary-light);
+  border-bottom: none;
 }
 
 /* Most ordered section (computed from real order quantities) */
