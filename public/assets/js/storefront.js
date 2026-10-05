@@ -405,7 +405,7 @@ const Storefront = (function() {
           </div>
           <div class="product-card-content">
             <h4 class="product-title">${isAr ? product.nameAr : product.nameEn}</h4>
-            <p class="product-desc">${isAr ? product.descAr : product.descEn}</p>
+            <p class="product-desc">${product.descAr || product.descEn}</p>
             <div class="product-pricing">
               <span class="current-price">${currentPrice} ${I18N.t('egp')}</span>
               ${hasDiscount ? `<span class="regular-price">${product.regularPrice} ${I18N.t('egp')}</span>` : ''}

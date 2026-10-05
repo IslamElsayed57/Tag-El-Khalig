@@ -310,11 +310,6 @@ const AdminProducts = (function() {
                 <textarea class="form-control" id="formProdDescAr" rows="2">${product ? product.descAr : ''}</textarea>
               </div>
 
-              <div class="form-group">
-                <label class="form-label">${isAr ? 'وصف المنتج (إنجليزي)' : 'Product Description (English)'}</label>
-                <textarea class="form-control" id="formProdDescEn" rows="2" dir="ltr">${product ? product.descEn : ''}</textarea>
-              </div>
-
               <!-- Product Image Selector & Upload -->
               <div class="form-group">
                 <label class="form-label">${I18N.t('productImage')}</label>
@@ -405,7 +400,6 @@ const AdminProducts = (function() {
         regularPrice: document.getElementById('formProdRegPrice').value,
         discountPrice: document.getElementById('formProdDiscPrice').value || null,
         descAr: document.getElementById('formProdDescAr').value,
-        descEn: document.getElementById('formProdDescEn').value,
         image: this.currentEditingImage || 'assets/images/kunafa_plate.jpg',
         inStock: document.getElementById('formProdInStock').checked,
         active: document.getElementById('formProdActive').checked,
