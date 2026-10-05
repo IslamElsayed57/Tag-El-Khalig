@@ -223,6 +223,14 @@ async function handle(req, res) {
     return json(res, 200, rows);
   }
   if (path === '/api/branches' && method === 'GET') return json(res, 200, parseList('branches', url.searchParams.get('active') === '1'));
+  if (path === '/api/products/popular' && method === 'GET') {
+    const rows = db.prepare("SELECT json_extract(je.value,'$.productId') AS pid,COALESCE(SUM(CAST(json_extract(je.value,'$.quantity') AS INTEGER)),0) AS qty FROM orders o,json_each(o.data,'$.items') je WHERE o.status<>'cancelled' GROUP BY pid ORDER BY qty DESC LIMIT 20").all();
+    const activeIds = new Set(parseList('categories', true).map(c => c.id));
+    const byId = new Map(parseList('products', true).filter(p => activeIds.has(p.categoryId)).map(p => [p.id, p]));
+    const popular = []; const seen = new Set();
+    for (const row of rows) { const p = row.pid && byId.get(row.pid), qty = Number(row.qty) || 0; if (!p || qty < 1 || seen.has(p.id)) continue; seen.add(p.id); popular.push({ ...p, soldCount: qty }); if (popular.length >= 8) break; }
+    return json(res, 200, popular);
+  }
   if (path === '/api/settings' && method === 'GET') return json(res, 200, decode(db.prepare('SELECT data FROM settings WHERE id=1').get().data));
 
   if (path === '/api/orders' && method === 'POST') {

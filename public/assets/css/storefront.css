@@ -240,6 +240,17 @@ html[dir="rtl"] .hero-section {
   border-bottom: 1px solid var(--border-color);
 }
 
+/* New arrivals banner (products flagged as new in the dashboard) */
+.new-arrivals-section {
+  background: linear-gradient(135deg, rgba(228, 0, 124, 0.06), rgba(255, 145, 0, 0.06));
+  border-top: 3px solid var(--primary);
+}
+
+/* Most ordered section (computed from real order quantities) */
+.popular-section {
+  background: var(--bg-subtle);
+}
+
 .section-header-row {
   display: flex;
   align-items: flex-end;

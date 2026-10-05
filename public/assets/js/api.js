@@ -803,6 +803,24 @@ const TajAPI = (function() {
       return prods.find(p => p.id === id) || null;
     },
 
+    async getPopularProducts() {
+      const orders = getStored(STORAGE_KEYS.ORDERS, defaultOrders);
+      const products = await this.getProducts({ onlyActive: true });
+      const counts = {};
+      orders.forEach(o => {
+        if (o.status === 'cancelled') return;
+        (o.items || []).forEach(it => {
+          const pid = it.productId || it.id;
+          if (pid) counts[pid] = (counts[pid] || 0) + (parseInt(it.quantity, 10) || 0);
+        });
+      });
+      return products
+        .filter(p => counts[p.id] > 0)
+        .map(p => ({ ...p, soldCount: counts[p.id] }))
+        .sort((a, b) => b.soldCount - a.soldCount)
+        .slice(0, 8);
+    },
+
     async createProduct(productData) {
       const prods = getStored(STORAGE_KEYS.PRODUCTS, defaultProducts);
       const newProd = {
@@ -817,7 +835,8 @@ const TajAPI = (function() {
         image: productData.image || 'assets/images/kunafa_plate.jpg',
         inStock: productData.inStock !== false,
         active: productData.active !== false,
-        featured: !!productData.featured
+        featured: !!productData.featured,
+        isNew: !!productData.isNew
       };
       prods.unshift(newProd);
       setStored(STORAGE_KEYS.PRODUCTS, prods);
@@ -877,6 +896,8 @@ const TajAPI = (function() {
         phone: branchData.phone.trim(),
         managerAr: (branchData.managerAr || '').trim(),
         managerEn: (branchData.managerEn || '').trim(),
+        hoursAr: (branchData.hoursAr || '').trim(),
+        hoursEn: (branchData.hoursEn || '').trim(),
         mapUrl: branchData.mapUrl || '',
         coordinates: branchData.coordinates || null,
         deliveryEligible: branchData.deliveryEligible !== false,
@@ -984,7 +1005,14 @@ const TajAPI = (function() {
 
     async createOrder(orderPayload) {
       const orders = getStored(STORAGE_KEYS.ORDERS, defaultOrders);
-      
+
+      // Parity with the server: reject unknown or out-of-stock items
+      const catalog = new Map((await this.getProducts({ onlyActive: true })).map(p => [p.id, p]));
+      for (const it of (orderPayload.items || [])) {
+        const p = catalog.get(it.productId || it.id);
+        if (!p || p.inStock === false) throw new Error('An item is no longer available');
+      }
+
       // Determine next order ID (e.g. 1025)
       const existingIds = orders.map(o => parseInt(o.id, 10)).filter(n => !isNaN(n));
       const nextId = existingIds.length > 0 ? (Math.max(...existingIds) + 1).toString() : '1025';
@@ -1289,6 +1317,7 @@ const TajAPI = (function() {
     async deleteCategory(id) { return request(`/categories/${encodeURIComponent(id)}`, {method:'DELETE'}); },
     async getProducts(filter = {}) { return request(`/products${query({active:filter.onlyActive ? 1 : undefined, categoryId:filter.categoryId, search:filter.search})}`); },
     async getProductById(id) { return request(`/products/${encodeURIComponent(id)}`); },
+    async getPopularProducts() { return request('/products/popular'); },
     async createProduct(data) { return request('/products', {method:'POST',body:JSON.stringify(data)}); },
     async updateProduct(id, data) { return request(`/products/${encodeURIComponent(id)}`, {method:'PUT',body:JSON.stringify(data)}); },
     async deleteProduct(id) { return request(`/products/${encodeURIComponent(id)}`, {method:'DELETE'}); },

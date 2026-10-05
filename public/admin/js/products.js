@@ -310,6 +310,11 @@ const AdminProducts = (function() {
                 <textarea class="form-control" id="formProdDescAr" rows="2">${product ? product.descAr : ''}</textarea>
               </div>
 
+              <div class="form-group">
+                <label class="form-label">${isAr ? 'وصف المنتج (إنجليزي)' : 'Product Description (English)'}</label>
+                <textarea class="form-control" id="formProdDescEn" rows="2" dir="ltr">${product ? product.descEn : ''}</textarea>
+              </div>
+
               <!-- Product Image Selector & Upload -->
               <div class="form-group">
                 <label class="form-label">${I18N.t('productImage')}</label>
@@ -340,6 +345,10 @@ const AdminProducts = (function() {
                 <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
                   <input type="checkbox" id="formProdFeatured" ${product && product.featured ? 'checked' : ''}>
                   <span>${isAr ? 'صنف مميز بالصفحة الرئيسية' : 'Featured on the home page'}</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                  <input type="checkbox" id="formProdNew" ${product && product.isNew ? 'checked' : ''}>
+                  <span>${isAr ? 'منتج جديد 🔥 (يظهر بوسم جديد)' : 'New arrival 🔥 (shown with a badge)'}</span>
                 </label>
               </div>
             </div>
@@ -396,11 +405,12 @@ const AdminProducts = (function() {
         regularPrice: document.getElementById('formProdRegPrice').value,
         discountPrice: document.getElementById('formProdDiscPrice').value || null,
         descAr: document.getElementById('formProdDescAr').value,
-        descEn: document.getElementById('formProdNameEn').value,
+        descEn: document.getElementById('formProdDescEn').value,
         image: this.currentEditingImage || 'assets/images/kunafa_plate.jpg',
         inStock: document.getElementById('formProdInStock').checked,
         active: document.getElementById('formProdActive').checked,
-        featured: document.getElementById('formProdFeatured').checked
+        featured: document.getElementById('formProdFeatured').checked,
+        isNew: document.getElementById('formProdNew').checked
       };
 
       try {

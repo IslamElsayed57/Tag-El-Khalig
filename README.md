@@ -65,7 +65,28 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 
 ## Development log (changes applied to this project)
 
-### Latest session — 2026-10-04 (two-pass security audit + approved fixes, PBKDF2 upgrade, SQL aggregation)
+### Latest session — 2026-10-05 (storefront features: sold-out wording, new-arrival flag, branch hours, most-ordered ranking)
+
+1. **"نفدت الكمية" badge wording + client-side guards (owner items 1–2)**
+   - The badge + disabled add-to-cart button and the server-side `inStock` rejection in `POST /orders` (both copies) already existed; this session reworded the badge to **"🚫 نفدت الكمية" / "🚫 Out of Stock"** (i18n `outOfStock` — Arabic string intentionally changed on request) and closed two client-side gaps: `cart.js` `addItem()` now refuses out-of-stock products with a toast (stale card / programmatic bypass), and the local-mock `createOrder()` in `public/assets/js/api.js` now validates items against the active catalog and rejects `inStock === false` with the server's exact message (`An item is no longer available`).
+2. **"New arrival 🔥" product flag (owner item 3)**
+   - `public/admin/js/products.js` — new "منتج جديد 🔥 (يظهر بوسم جديد)" checkbox in the add/edit product form, saved as `isNew`; entity fields pass through untouched in both server copies, so no server change was needed. Local-mock `createProduct` persists `isNew`.
+   - `public/assets/js/storefront.js` — 🔥 `product-new-tag` badge on product cards; homepage banner section `#newArrivalsSection` ("وصل حديثاً 🔥", before the featured section) renders flagged products (up to 6) and hides itself when none are flagged.
+3. **Branch working hours (owner item 4)**
+   - `public/admin/js/branches.js` — `hoursAr`/`hoursEn` inputs in the add/edit branch modal (right after address) included in the save payload; local-mock `createBranch` persists them (server pass-through, no server change).
+   - Storefront branches page — 🕐 "أوقات العمل" row rendered directly under the address (uses the current language, falls back to the other one).
+4. **"Most ordered" ranking from real orders (owner item 5)**
+   - New public **`GET /products/popular`** in both `functions/api/[[path]].js` and `server/server.mjs`: one SQL aggregation (`json_each(orders.data,'$.items')` + `SUM(quantity)`, `status<>'cancelled'` excluded, top 20 groups) joined in JS against active products in active categories → up to 8 products with `soldCount`. The `json_each` value/path semantics were verified against SQLite directly before shipping.
+   - `public/assets/js/api.js` — `getPopularProducts()` in remote mode (new endpoint) and local mode (same counting rules over localStorage orders, cancelled excluded).
+   - Homepage `#popularSection` ("الأكثر طلباً ⭐", after the featured section) renders via `renderProductCard(p, isAr, soldCount)` — cards show "تم طلبه {count} مرة"; section hides when there are no counted orders.
+5. **i18n + CSS (all new keys added to both `ar` and `en` tables)** — `newArrivalsBadge/Title`, `popularBadge/Title`, `newBadge`, `popularSoldCount`, `branchHours`; `outOfStock` reworded (item 1). New CSS: `.product-new-tag`, `.product-sold-count` (main.css), `.new-arrivals-section`, `.popular-section` (storefront.css). Existing sections/keys untouched. Verified with esprima (all eight touched JS files parse).
+6. **Footer "طرق الدفع" column extended to the other section pages (owner request)**
+   - `categories.html` and `branches.html` footers — the 4th column "خدمة العملاء" (phone/WhatsApp/email block) was replaced with the exact "طرق الدفع" payment column from `index.html` (same markup, same classes). All five payment keys already existed in both `ar` and `en` tables, and the styles live in `storefront.css` (loaded by both pages); the list uses plain flex + `space-between` so it renders correctly in RTL Arabic and LTR English.
+   - Untouched: `branches.html`'s hero title still uses `contactTitle` (only the footer column was swapped); `cart.html` has no column footer (nothing to swap); contact details remain on the branches page's contact section. `storefront.js` field updaters (`.store-phone-display` etc.) no-op safely where those elements no longer exist.
+7. **Product form: English description field (old bug fixed, owner approved)**
+   - `public/admin/js/products.js` — the add/edit product modal previously had **no** English-description input while `saveProductForm` set `descEn: formProdNameEn.value`, so every dashboard save overwrote the product's English description with its English name. The form now has a second textarea (`formProdDescEn`, `dir="ltr"`, seeded with the existing `descEn`) right under the Arabic one, and the payload reads it. Server unchanged — entity fields pass through both copies; the local-mock `createProduct` already persisted `productData.descEn`. Products edited before this fix keep the clobbered value until re-saved. Verified with esprima.
+
+### Session — 2026-10-04 (two-pass security audit + approved fixes, PBKDF2 upgrade, SQL aggregation)
 
 1. **Stored-XSS hardening — guest order fields rendered in the admin UI**
    - `public/admin/js/admin.js` — new global `escapeHtml()` helper (top of file) escaping `& < > " '`; the notification list now renders `escapeHtml(n.text)`.
@@ -147,7 +168,7 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 - **Three-copy parity**: server logic exists in `functions/api/[[path]].js` (production), `server/server.mjs` (parity copy), and the local fallback in `public/assets/js/api.js`. Change them together.
 - **i18n rules**: admin templates use either `I18N.t('key')` or inline `isAr ? 'عربي' : 'English'`; storefront uses `data-i18n`/`data-i18n-placeholder` attributes applied by `applyToDOM` in `i18n.js` plus the `taj_lang_changed` event. Any new key must be added to **both** the `ar` and `en` tables. Arabic strings must remain byte-identical when they already exist.
 - **Runtime config**: `window.TAJ_CONFIG = { apiBaseUrl: '/api', mode: 'remote' }` in `public/assets/js/config.js` (switch to `mode: 'local'` only for offline/local-storage use).
-- **Auth shape**: server routes before the auth gate in `functions/api/[[path]].js` (health, login/logout/me, events, catalogue lists + single GET, settings, `POST /orders`) are public by design — storefront guests depend on them.
+- **Auth shape**: server routes before the auth gate in `functions/api/[[path]].js` (health, login/logout/me, events, catalogue lists + single GET, `GET /products/popular`, settings, `POST /orders`) are public by design — storefront guests depend on them.
 
 ## Known intentionally-unchanged items
 

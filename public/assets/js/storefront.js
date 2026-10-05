@@ -171,6 +171,29 @@ const Storefront = (function() {
       const displayProds = featured.length > 0 ? featured : products.slice(0, 6);
 
       container.innerHTML = displayProds.map(p => this.renderProductCard(p, isAr)).join('');
+
+      // New arrivals banner (products flagged isNew in the dashboard)
+      const newArrivalsContainer = document.getElementById('newArrivalsContainer');
+      if (newArrivalsContainer) {
+        const newProds = products.filter(p => p.isNew).slice(0, 6);
+        newArrivalsContainer.innerHTML = newProds.map(p => this.renderProductCard(p, isAr)).join('');
+        const newArrivalsSection = document.getElementById('newArrivalsSection');
+        if (newArrivalsSection) newArrivalsSection.style.display = newProds.length ? '' : 'none';
+      }
+
+      // Most-ordered products, computed server-side from real order quantities
+      const popularContainer = document.getElementById('popularProductsContainer');
+      const popularSection = document.getElementById('popularSection');
+      if (popularContainer) {
+        try {
+          const popular = await TajAPI.getPopularProducts();
+          popularContainer.innerHTML = popular.map(p => this.renderProductCard(p, isAr, p.soldCount)).join('');
+          if (popularSection) popularSection.style.display = popular.length ? '' : 'none';
+        } catch (err) {
+          console.error('Failed to load popular products:', err);
+          if (popularSection) popularSection.style.display = 'none';
+        }
+      }
     },
 
     // 2. CATEGORIES & MENU PAGE
@@ -297,7 +320,9 @@ const Storefront = (function() {
       }
 
       // Branches cards
-      container.innerHTML = branches.map(b => `
+      container.innerHTML = branches.map(b => {
+        const hours = isAr ? (b.hoursAr || b.hoursEn) : (b.hoursEn || b.hoursAr);
+        return `
         <div class="branch-card">
           <div class="branch-card-header">
             <div class="branch-pin-icon">🏛️</div>
@@ -309,6 +334,12 @@ const Storefront = (function() {
               <span class="info-label">📍 ${I18N.t('branchAddress')}:</span>
               <span class="info-value">${isAr ? b.addressAr : b.addressEn}</span>
             </div>
+            ${hours ? `
+              <div class="branch-info-row">
+                <span class="info-label">🕐 ${I18N.t('branchHours')}:</span>
+                <span class="info-value">${hours}</span>
+              </div>
+            ` : ''}
             <div class="branch-info-row">
               <span class="info-label">📞 ${I18N.t('branchPhone')}:</span>
               <a href="tel:${b.phone}" class="info-value dir-ltr">${b.phone}</a>
@@ -326,7 +357,8 @@ const Storefront = (function() {
             </a>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
 
       // Contact form: opens WhatsApp with a formatted message to the shop's registered number
       const contactForm = document.getElementById('contactInquiryForm');
@@ -356,7 +388,7 @@ const Storefront = (function() {
     },
 
     // Helper: Product Card HTML renderer
-    renderProductCard(product, isAr) {
+    renderProductCard(product, isAr, soldCount = 0) {
       const hasDiscount = product.discountPrice && product.discountPrice < product.regularPrice;
       const currentPrice = hasDiscount ? product.discountPrice : product.regularPrice;
       const percentOff = hasDiscount ? Math.round(((product.regularPrice - product.discountPrice) / product.regularPrice) * 100) : 0;
@@ -369,6 +401,7 @@ const Storefront = (function() {
             <span class="product-stock-tag ${product.inStock ? 'in-stock' : 'out-of-stock'}">
               ${product.inStock ? I18N.t('inStock') : I18N.t('outOfStock')}
             </span>
+            ${product.isNew ? `<span class="product-new-tag">🔥 ${I18N.t('newBadge')}</span>` : ''}
           </div>
           <div class="product-card-content">
             <h4 class="product-title">${isAr ? product.nameAr : product.nameEn}</h4>
@@ -377,6 +410,7 @@ const Storefront = (function() {
               <span class="current-price">${currentPrice} ${I18N.t('egp')}</span>
               ${hasDiscount ? `<span class="regular-price">${product.regularPrice} ${I18N.t('egp')}</span>` : ''}
             </div>
+            ${soldCount ? `<div class="product-sold-count">⭐ ${I18N.t('popularSoldCount', { count: soldCount })}</div>` : ''}
             <div class="product-card-actions">
               <button type="button" 
                       class="btn btn-primary btn-block btn-add-to-cart" 

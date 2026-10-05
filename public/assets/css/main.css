@@ -589,6 +589,26 @@ button {
   color: #FFFFFF;
 }
 
+.product-new-tag {
+  position: absolute;
+  bottom: 12px;
+  inset-inline-start: 12px;
+  background: linear-gradient(135deg, #ff7a00, #ff2d55);
+  color: #FFFFFF;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  border-radius: var(--radius-full);
+  box-shadow: 0 4px 10px rgba(255, 45, 85, 0.4);
+}
+
+.product-sold-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 0.6rem;
+}
+
 .product-card-content {
   padding: 1.25rem;
   display: flex;

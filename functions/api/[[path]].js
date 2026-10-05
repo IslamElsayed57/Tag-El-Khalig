@@ -193,6 +193,13 @@ export async function onRequest(context) {
       return json(rows);
     }
     if(path==='/branches' && method==='GET') return json(await list(env,'branches',url.searchParams.get('active')==='1'));
+    if(path==='/products/popular' && method==='GET') {
+      const rows=await db.prepare("SELECT json_extract(je.value,'$.productId') AS pid,COALESCE(SUM(CAST(json_extract(je.value,'$.quantity') AS INTEGER)),0) AS qty FROM orders o,json_each(o.data,'$.items') je WHERE o.status<>'cancelled' GROUP BY pid ORDER BY qty DESC LIMIT 20").all();
+      const ids=new Set((await list(env,'categories',true)).map(x=>x.id)),byId=new Map((await list(env,'products',true)).filter(p=>ids.has(p.categoryId)).map(p=>[p.id,p]));
+      const popular=[];const seen=new Set();
+      for(const row of rows.results){const p=row.pid&&byId.get(row.pid),qty=Number(row.qty)||0;if(!p||qty<1||seen.has(p.id))continue;seen.add(p.id);popular.push({...p,soldCount:qty});if(popular.length>=8)break;}
+      return json(popular);
+    }
     if(path==='/settings' && method==='GET') return json(decode((await db.prepare('SELECT data FROM settings WHERE id=1').first()).data));
 
     if(path==='/orders' && method==='POST') {

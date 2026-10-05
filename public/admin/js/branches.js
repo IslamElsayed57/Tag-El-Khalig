@@ -193,6 +193,17 @@ const AdminBranches = (function() {
                   <input type="text" class="form-control" id="formBranchAddressAr" required value="${branch ? branch.addressAr : ''}" placeholder="${isAr ? 'شارع عباس العقاد، تقاطع مصطفى النحاس، القاهرة' : 'Abbas El Akkad St., Mustafa El Nahas St. Intersection, Cairo'}">
               </div>
 
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                <div class="form-group">
+                  <label class="form-label">${I18N.t('branchHours')} (عربي)</label>
+                  <input type="text" class="form-control" id="formBranchHoursAr" value="${branch && branch.hoursAr ? branch.hoursAr : ''}" placeholder="${isAr ? 'يومياً من 9 صباحاً حتى 12 منتصف الليل' : 'Daily 9 AM - 12 AM'}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">${I18N.t('branchHours')} (English)</label>
+                  <input type="text" class="form-control" id="formBranchHoursEn" value="${branch && branch.hoursEn ? branch.hoursEn : ''}" placeholder="Daily 9 AM - 12 AM" dir="ltr">
+                </div>
+              </div>
+
               <div class="form-group">
                 <label class="form-label">${I18N.t('branchMapUrl')}</label>
                 <input type="url" class="form-control" id="formBranchMapUrl" value="${branch ? branch.mapUrl : ''}" placeholder="https://maps.google.com/?q=30.0617,31.3368">
@@ -231,6 +242,8 @@ const AdminBranches = (function() {
         managerEn: document.getElementById('formBranchManager').value,
         addressAr: document.getElementById('formBranchAddressAr').value,
         addressEn: document.getElementById('formBranchAddressAr').value,
+        hoursAr: document.getElementById('formBranchHoursAr').value.trim(),
+        hoursEn: document.getElementById('formBranchHoursEn').value.trim(),
         mapUrl: document.getElementById('formBranchMapUrl').value,
         deliveryEligible: document.getElementById('formBranchDeliveryEligible').checked,
         active: document.getElementById('formBranchActive').checked

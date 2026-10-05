@@ -54,6 +54,10 @@ const I18N = {
       storyText2: "نحرص يومياً على استخدام مكونات طازجة 100%، وسمن بلدي صافٍ، وقشطة طازجة وذلك حسب طلبكم، لنضمن أن تصل كل علبة إلى موائدكم بأعلى معايير الجودة والبهجة التي تليق بكل احتفال ومناسبة عائلية.",
       featuredBadge: "المميز والأكثر طلباً",
       featuredTitle: "تشكيلة مختارة ترضي ذوقكم الرفيع",
+      newArrivalsBadge: "وصل حديثاً 🔥",
+      newArrivalsTitle: "أحدث المنتجات المضافة لقائمتنا",
+      popularBadge: "الأكثر طلباً ⭐",
+      popularTitle: "أصناف يطلبها عملاؤنا يومياً",
       freeDeliveryBanner: "توصيل مجاني للطلبات بقيمة {min} ج.م فأكثر!",
 
       // Products & Categories
@@ -66,8 +70,10 @@ const I18N = {
       egp: "ج.م",
       addToCart: "إضافة للسلة",
       inStock: "متوفر طازج اليوم",
-      outOfStock: "نفد مؤقتاً",
+      outOfStock: "🚫 نفدت الكمية",
       discountBadge: "خصم {percent}%",
+      newBadge: "جديد",
+      popularSoldCount: "تم طلبه {count} مرة",
 
       // Cart & Checkout
       cartTitle: "سلة المشتريات",
@@ -114,6 +120,7 @@ const I18N = {
       branchManager: "مدير الفرع",
       branchPhone: "هاتف الفرع",
       branchAddress: "العنوان",
+      branchHours: "أوقات العمل",
       openInMaps: "فتح الموقع في خرائط Google",
       sendInquiry: "أرسل لنا رسالة أو استفسار",
       senderName: "الاسم",
@@ -332,6 +339,10 @@ const I18N = {
       storyText2: "Every day, our master pastry chefs bake using pure local ghee, fresh clotted cream (Ashta), and freshly cracked pistachios, ensuring every sweet box arrives at your gathering with pride and joy.",
       featuredBadge: "Best Sellers & Favorites",
       featuredTitle: "Hand-Picked Creations For Discerning Palates",
+      newArrivalsBadge: "Just Arrived 🔥",
+      newArrivalsTitle: "The Latest Additions To Our Menu",
+      popularBadge: "Most Ordered ⭐",
+      popularTitle: "What Our Customers Order Daily",
       freeDeliveryBanner: "Free delivery on all orders over {min} EGP!",
 
       // Products & Categories
@@ -344,8 +355,10 @@ const I18N = {
       egp: "EGP",
       addToCart: "Add to Cart",
       inStock: "Fresh in Stock",
-      outOfStock: "Temporarily Sold Out",
+      outOfStock: "🚫 Out of Stock",
       discountBadge: "{percent}% OFF",
+      newBadge: "New",
+      popularSoldCount: "Ordered {count} times",
 
       // Cart & Checkout
       cartTitle: "Shopping Cart",
@@ -392,6 +405,7 @@ const I18N = {
       branchManager: "Branch Manager",
       branchPhone: "Branch Phone",
       branchAddress: "Address",
+      branchHours: "Working Hours",
       openInMaps: "Open in Google Maps",
       sendInquiry: "Send Us an Inquiry",
       senderName: "Your Name",
