@@ -242,7 +242,7 @@ html[dir="rtl"] .hero-section {
 
 /* New arrivals banner (products flagged as new in the dashboard) */
 .new-arrivals-section {
-  background: var(--primary-light);
+  background: var(--bg-surface);
   border-bottom: none;
 }
 

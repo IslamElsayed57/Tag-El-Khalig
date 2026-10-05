@@ -410,8 +410,7 @@ const Storefront = (function() {
             <div class="product-card-actions">
               <button type="button" 
                       class="btn btn-primary btn-block btn-add-to-cart" 
-                      data-product-id="${product.id}"
-                      ${!product.inStock ? 'disabled' : ''}>
+                      data-product-id="${product.id}">
                 <span class="cart-icon">🛒</span>
                 <span>${I18N.t('addToCart')}</span>
               </button>

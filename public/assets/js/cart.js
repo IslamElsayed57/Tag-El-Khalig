@@ -55,7 +55,7 @@ const TajCart = (function() {
 
     addItem(product, quantity = 1, triggerEl = null) {
       if (product.inStock === false) {
-        this.showToast('🚫 ' + I18N.t('outOfStock'));
+        this.showToast(I18N.t('outOfStockAlert'));
         return;
       }
       const existing = cartItems.find(i => i.id === product.id);

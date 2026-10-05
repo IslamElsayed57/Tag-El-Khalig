@@ -611,12 +611,22 @@ html[lang="en"] body {
   overflow: hidden;
 }
 
+/* When body + footer live inside a <form> (product/branch/staff modals), the form
+   itself must behave as the flex column so the body scrolls and the footer stays visible. */
+.admin-modal-box > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .modal-header-admin {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--admin-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .modal-body-admin {
@@ -633,6 +643,7 @@ html[lang="en"] body {
   justify-content: flex-end;
   gap: 0.75rem;
   background: var(--admin-bg);
+  flex-shrink: 0;
 }
 
 /* User Switcher Pill */
