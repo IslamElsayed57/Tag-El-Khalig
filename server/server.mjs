@@ -259,7 +259,9 @@ async function handle(req, res) {
     if (type === 'delivery' && !String(input.address || '').trim()) return json(res, 400, { error:'A delivery address is required' });
     if (String(input.address || '').trim().length > 300) return json(res, 400, { error:'Delivery address must be 300 characters or fewer' });
     const createdAt = new Date().toISOString();
-    const orderData = { createdAt, customerName:String(input.customerName).trim(), customerPhone:phone, type, branchId:branchData.id, branchNameAr:branchData.nameAr, branchNameEn:branchData.nameEn, deliveryFee, subtotal, total:subtotal+deliveryFee, status:'new', items, address:input.address || null, gpsCoordinates:input.gpsCoordinates || null, notes:String(input.notes || '').trim() };
+    const gpsIn = input.gpsCoordinates;
+    const gps = gpsIn && Number.isFinite(gpsIn.lat) && Number.isFinite(gpsIn.lng) ? { lat:gpsIn.lat, lng:gpsIn.lng } : null;
+    const orderData = { createdAt, customerName:String(input.customerName).trim(), customerPhone:phone, type, branchId:branchData.id, branchNameAr:branchData.nameAr, branchNameEn:branchData.nameEn, deliveryFee, subtotal, total:subtotal+deliveryFee, status:'new', items, address:input.address || null, gpsCoordinates:gps, notes:String(input.notes || '').trim() };
     const result = db.prepare('INSERT INTO orders(customer_name,customer_phone,branch_id,status,created_at,data) VALUES(?,?,?,?,?,?)').run(orderData.customerName, phone, branchData.id, 'new', createdAt, encode(orderData));
     orderData.id = String(result.lastInsertRowid);
     db.prepare('UPDATE orders SET data=? WHERE id=?').run(encode(orderData), result.lastInsertRowid);
@@ -301,7 +303,7 @@ async function handle(req, res) {
     if (!input.active) {
       db.prepare('DELETE FROM sessions WHERE user_id=?').run(id);
       for (const client of clients) {
-        if (client.user.id === id) { client.response.end(); clients.delete(client); }
+        if (client.user && client.user.id === id) { client.response.end(); clients.delete(client); }
       }
     }
     const updated = db.prepare('SELECT * FROM users WHERE id=?').get(id);
