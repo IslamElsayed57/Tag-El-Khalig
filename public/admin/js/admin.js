@@ -109,6 +109,13 @@ const AdminApp = (function() {
     return false;
   }
 
+  function orderMatchesWatchedBranch(order) {
+    const watched = window.AdminOrders && typeof AdminOrders.getWatchedBranchId === 'function'
+      ? AdminOrders.getWatchedBranchId()
+      : 'all';
+    return watched === 'all' || !order || !order.branchId || order.branchId === watched;
+  }
+
   function addNotification(text) {
     unreadNotifications.unshift({
       id: Date.now(),
@@ -415,6 +422,7 @@ const AdminApp = (function() {
         const order = e.detail && e.detail.order;
         if (!order) return;
         if (isDuplicateOrderEvent('new:' + order.id)) return;
+        if (!orderMatchesWatchedBranch(order)) return;
         addNotification(`طلب جديد #${order.id} من ${order.customerName} بقيمة ${order.total} ج.م`);
         startOrderAlert(order.id);
         if (activeTab === 'orders' && window.AdminOrders) {
@@ -431,6 +439,7 @@ const AdminApp = (function() {
         if (!order) return;
         if (isDuplicateOrderEvent('status:' + order.id + ':' + (order.updatedAt || order.status || ''))) return;
         stopOrderAlert(order.id);
+        if (!orderMatchesWatchedBranch(order)) return;
         addNotification(`تم تحديث حالة الطلب #${order.id} إلى ${order.status}`);
         if (activeTab === 'orders' && window.AdminOrders) {
           AdminOrders.render();

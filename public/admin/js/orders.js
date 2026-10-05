@@ -440,6 +440,11 @@ const AdminOrders = (function() {
       modal.classList.add('active');
     },
 
+    getWatchedBranchId() {
+      const user = AdminApp.getCurrentUser();
+      return user && user.role === 'branch' ? user.branchId : filters.branchId;
+    },
+
     async saveOrderStatus(orderId) {
       const select = document.getElementById('orderStatusUpdateSelect');
       if (!select) return;
