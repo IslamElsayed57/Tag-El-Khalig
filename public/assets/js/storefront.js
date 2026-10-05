@@ -117,7 +117,7 @@ const Storefront = (function() {
       }
 
       // Check current page
-      if (document.getElementById('featuredProductsContainer')) {
+      if (document.getElementById('newArrivalsContainer') || document.getElementById('popularProductsContainer')) {
         await this.renderHomePage(settings);
       }
 
@@ -136,20 +136,22 @@ const Storefront = (function() {
         ? 'تعذر تحميل البيانات. تحقق من اتصالك ثم أعد تحميل الصفحة.'
         : 'Could not load data. Check your connection and reload the page.';
       const html = `<div class="no-results-box"><div class="no-results-icon">⚠️</div><p>${message}</p></div>`;
-      ['featuredProductsContainer', 'categoriesMenuContainer', 'branchesListContainer'].forEach(id => {
+      ['newArrivalsContainer', 'categoriesMenuContainer', 'branchesListContainer'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         const stillLoading = el.querySelector('[data-i18n="loading"]');
-        if (stillLoading || !el.innerHTML.trim()) el.innerHTML = html;
+        if (stillLoading || !el.innerHTML.trim()) {
+          el.innerHTML = html;
+          const section = el.closest('section');
+          if (section) section.style.display = '';
+        }
       });
     },
 
     // 1. HOME PAGE
     async renderHomePage(settings) {
       const isAr = I18N.currentLang === 'ar';
-      const container = document.getElementById('featuredProductsContainer');
       const catsContainer = document.getElementById('homeFeaturedCats');
-      if (!container) return;
 
       const [products, categories] = await Promise.all([
         TajAPI.getProducts({ onlyActive: true }),
@@ -165,12 +167,6 @@ const Storefront = (function() {
           </a>
         `).join('');
       }
-
-      // Render featured products
-      const featured = products.filter(p => p.featured).slice(0, 6);
-      const displayProds = featured.length > 0 ? featured : products.slice(0, 6);
-
-      container.innerHTML = displayProds.map(p => this.renderProductCard(p, isAr)).join('');
 
       // New arrivals banner (products flagged isNew in the dashboard)
       const newArrivalsContainer = document.getElementById('newArrivalsContainer');

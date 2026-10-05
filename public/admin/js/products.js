@@ -338,10 +338,6 @@ const AdminProducts = (function() {
                   <span>${isAr ? 'نشط ويظهر للمشترين' : 'Active and visible to customers'}</span>
                 </label>
                 <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
-                  <input type="checkbox" id="formProdFeatured" ${product && product.featured ? 'checked' : ''}>
-                  <span>${isAr ? 'صنف مميز بالصفحة الرئيسية' : 'Featured on the home page'}</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
                   <input type="checkbox" id="formProdNew" ${product && product.isNew ? 'checked' : ''}>
                   <span>${isAr ? 'منتج جديد 🔥 (يظهر بوسم جديد)' : 'New arrival 🔥 (shown with a badge)'}</span>
                 </label>
@@ -403,7 +399,6 @@ const AdminProducts = (function() {
         image: this.currentEditingImage || 'assets/images/kunafa_plate.jpg',
         inStock: document.getElementById('formProdInStock').checked,
         active: document.getElementById('formProdActive').checked,
-        featured: document.getElementById('formProdFeatured').checked,
         isNew: document.getElementById('formProdNew').checked
       };
 
