@@ -43,3 +43,9 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   count INTEGER NOT NULL,
   blocked_until INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS order_attempts (
+  ip_hash TEXT PRIMARY KEY,
+  last_at INTEGER NOT NULL,
+  hour_start INTEGER NOT NULL,
+  hour_count INTEGER NOT NULL
+);

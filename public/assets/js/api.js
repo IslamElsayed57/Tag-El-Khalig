@@ -1291,7 +1291,7 @@ const TajAPI = (function() {
       ...options
     });
     const result = response.status === 204 ? null : await response.json().catch(() => null);
-    if (!response.ok) throw new Error(result?.error || `Server request failed (${response.status})`);
+    if (!response.ok) { const error = new Error(result?.error || `Server request failed (${response.status})`); error.status = response.status; throw error; }
     return result;
   }
   function connectEvents(authenticated = false) {

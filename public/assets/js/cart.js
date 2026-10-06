@@ -546,7 +546,7 @@ const TajCart = (function() {
         // Show Order Success Modal
         this.showOrderSuccessModal(savedOrder);
       } catch (err) {
-        alert(I18N.t('error') + ': ' + err.message);
+        alert(err.status === 429 ? I18N.t('orderRateLimit') : I18N.t('error') + ': ' + err.message);
         if (submitBtn) {
           submitBtn.disabled = false;
           const spinner = submitBtn.querySelector('.btn-spinner');

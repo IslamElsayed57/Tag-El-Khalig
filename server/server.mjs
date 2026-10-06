@@ -110,6 +110,7 @@ if (initialUsername && initialPassword && !db.prepare('SELECT id FROM users LIMI
 
 const clients = new Set();
 const loginFailures = new Map();
+const orderAttempts = new Map();
 function publish(type, payload) {
   const message = `event: ${type}\ndata: ${encode(payload)}\n\n`;
   const publicEvents = new Set(['taj_products_updated','taj_categories_updated','taj_branches_updated','taj_settings_updated']);
@@ -235,6 +236,8 @@ async function handle(req, res) {
   if (path === '/api/settings' && method === 'GET') return json(res, 200, decode(db.prepare('SELECT data FROM settings WHERE id=1').get().data));
 
   if (path === '/api/orders' && method === 'POST') {
+    const rlIp = req.socket.remoteAddress || 'unknown', rlNow = Date.now(), rlRow = orderAttempts.get(rlIp);
+    if (rlRow && (rlNow - rlRow.lastAt < 10000 || (rlNow - rlRow.hourStart < 3600000 && rlRow.hourCount >= 20))) return json(res, 429, { error:'Too many order requests. Please try again shortly.' });
     const input = await body(req);
     const phone = String(input.customerPhone || '').replace(/\D/g, '');
     if (!/^01\d{9}$/.test(phone) || !String(input.customerName || '').trim() || !Array.isArray(input.items) || !input.items.length) return json(res, 400, { error:'Valid name, Egyptian mobile, and order items are required' });
@@ -266,6 +269,9 @@ async function handle(req, res) {
     const result = db.prepare('INSERT INTO orders(customer_name,customer_phone,branch_id,status,created_at,data) VALUES(?,?,?,?,?,?)').run(orderData.customerName, phone, branchData.id, 'new', createdAt, encode(orderData));
     orderData.id = String(result.lastInsertRowid);
     db.prepare('UPDATE orders SET data=? WHERE id=?').run(encode(orderData), result.lastInsertRowid);
+    const rlHourActive = rlRow && rlNow - rlRow.hourStart < 3600000;
+    orderAttempts.set(rlIp, { lastAt: rlNow, hourStart: rlHourActive ? rlRow.hourStart : rlNow, hourCount: rlHourActive ? rlRow.hourCount + 1 : 1 });
+    if (orderAttempts.size > 1000) { for (const [k, v] of orderAttempts) if (rlNow - v.lastAt >= 3600000) orderAttempts.delete(k); }
     publish('taj_new_order', { order:orderData, branchId:branchData.id });
     return json(res, 201, orderData);
   }

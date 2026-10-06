@@ -46,7 +46,8 @@ async function ensureSchema(db) {
     'CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL)',
     'CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, branch_id TEXT, data TEXT NOT NULL, created_at INTEGER NOT NULL)',
     'CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at)',
-    'CREATE TABLE IF NOT EXISTS login_attempts (ip_hash TEXT PRIMARY KEY, count INTEGER NOT NULL, blocked_until INTEGER NOT NULL)'
+    'CREATE TABLE IF NOT EXISTS login_attempts (ip_hash TEXT PRIMARY KEY, count INTEGER NOT NULL, blocked_until INTEGER NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS order_attempts (ip_hash TEXT PRIMARY KEY, last_at INTEGER NOT NULL, hour_start INTEGER NOT NULL, hour_count INTEGER NOT NULL)'
   ];
   await db.batch(statements.map(sql=>db.prepare(sql)));
 }
@@ -204,6 +205,8 @@ export async function onRequest(context) {
     if(path==='/settings' && method==='GET') return json(decode((await db.prepare('SELECT data FROM settings WHERE id=1').first()).data));
 
     if(path==='/orders' && method==='POST') {
+      const rlIp=request.headers.get('CF-Connecting-IP')||'unknown', rlHash=await digest(rlIp), rlNow=Date.now(), rlRow=await db.prepare('SELECT last_at,hour_start,hour_count FROM order_attempts WHERE ip_hash=?').bind(rlHash).first();
+      if(rlRow&&(rlNow-rlRow.last_at<10000||(rlNow-rlRow.hour_start<3600000&&rlRow.hour_count>=20)))return json({error:'Too many order requests. Please try again shortly.'},429);
       const input=await body(request), phone=String(input.customerPhone||'').replace(/\D/g,'');
       if(!/^01\d{9}$/.test(phone)||!String(input.customerName||'').trim()||!Array.isArray(input.items)||!input.items.length) return json({error:'Valid name, Egyptian mobile, and order items are required'},400);
       if(String(input.customerName||'').trim().length>120) return json({error:'Customer name must be 120 characters or fewer'},400);
@@ -215,6 +218,9 @@ export async function onRequest(context) {
       const branch=decode(branchRow.data);if(type==='delivery'&&!branch.deliveryEligible)return json({error:'Selected branch does not provide delivery'},400);if(type==='delivery'&&!String(input.address||'').trim())return json({error:'A delivery address is required'},400);if(String(input.address||'').trim().length>300)return json({error:'Delivery address must be 300 characters or fewer'},400);
       const createdAt=nowIso(),gpsIn=input.gpsCoordinates,gps=gpsIn&&Number.isFinite(gpsIn.lat)&&Number.isFinite(gpsIn.lng)?{lat:gpsIn.lat,lng:gpsIn.lng}:null,order={createdAt,customerName:String(input.customerName).trim(),customerPhone:phone,type,branchId:branch.id,branchNameAr:branch.nameAr,branchNameEn:branch.nameEn,deliveryFee,subtotal,total:subtotal+deliveryFee,status:'new',items,address:input.address||null,gpsCoordinates:gps,notes:String(input.notes||'').trim()};
       const result=await db.prepare('INSERT INTO orders(customer_name,customer_phone,branch_id,status,created_at,data) VALUES(?,?,?,?,?,?)').bind(order.customerName,phone,branch.id,'new',createdAt,encode(order)).run();order.id=String(result.meta.last_row_id);await db.prepare('UPDATE orders SET data=? WHERE id=?').bind(encode(order),result.meta.last_row_id).run();
+      const rlHourActive=rlRow&&rlNow-rlRow.hour_start<3600000;
+      await db.prepare('INSERT INTO order_attempts(ip_hash,last_at,hour_start,hour_count) VALUES(?,?,?,?) ON CONFLICT(ip_hash) DO UPDATE SET last_at=excluded.last_at,hour_start=excluded.hour_start,hour_count=excluded.hour_count').bind(rlHash,rlNow,rlHourActive?rlRow.hour_start:rlNow,rlHourActive?rlRow.hour_count+1:1).run();
+      await db.prepare('DELETE FROM order_attempts WHERE last_at<?').bind(rlNow-3600000).run();
       await addEvent(env,'taj_new_order',{order,branchId:branch.id},branch.id);return json(order,201);
     }
 

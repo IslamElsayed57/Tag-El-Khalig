@@ -25,7 +25,7 @@ Create a local `.dev.vars` file with `TAJ_ADMIN_USER` and `TAJ_ADMIN_PASSWORD` f
 
 ### Data, authentication, and notifications
 
-- Orders are priced and validated by the API before they are written to D1.
+- Orders are priced and validated by the API before they are written to D1, and `POST /orders` is rate-limited per IP (1 order / 10 s, max 20 / hour — development log item 18).
 - Admin and branch permissions are checked on the server. Passwords use PBKDF2 (20,000 iterations; the count is stored per hash so it can be raised without breaking existing accounts); sessions use secure, HttpOnly, SameSite cookies.
 - The dashboard checks the event endpoint every 10 seconds while open to receive new-order, status, catalogue, branch, and settings updates. This polling approach works on the free Pages plan without a permanently running server.
 - Uploaded product photos are resized in the browser and stored with the product record. Keep photos small; D1 has per-row and total free-tier storage limits.
@@ -39,11 +39,12 @@ Create a local `.dev.vars` file with `TAJ_ADMIN_USER` and `TAJ_ADMIN_PASSWORD` f
 - `wrangler.jsonc` — Pages output and D1 binding.
 - `server/server.mjs` — Node/SQLite copy of the API; **must be kept in parity** with the Functions API (every server-side change goes into both files).
 - `public/assets/js/api.js` — API client; contains the remote implementation plus a full local (localStorage) fallback that mirrors server behavior.
+- `public/_headers` — Cloudflare Pages response headers (the CSP / `X-Frame-Options` / `Referrer-Policy` set), kept identical to what `server.mjs` sends when it serves static files locally.
 
 ## Storage model, images, and free-plan limits
 
 ### D1 tables
-`branches`, `categories`, `products`, `orders`, `users`, `sessions`, `login_attempts`, `settings`, `events` (+ `sqlite_sequence`, auto-created by SQLite). Catalogue/settings tables are seeded from in-code defaults on first boot when empty.
+`branches`, `categories`, `products`, `orders`, `users`, `sessions`, `login_attempts`, `order_attempts`, `settings`, `events` (+ `sqlite_sequence`, auto-created by SQLite). Catalogue/settings tables are seeded from in-code defaults on first boot when empty.
 
 ### Product images (two supported forms)
 - **Base64 in D1 (current default)**: the admin upload resizes in-browser (max side 1200px → WebP quality 0.76) and stores a `data:` URL inside `products.data.image`; the API rejects images longer than ~1.5M chars (≈1 MB) with 413.
@@ -127,6 +128,17 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
     - Root cause in `public/assets/js/storefront.js` → `loadPageContent()` (no HTML changes): the WhatsApp updater only rewrote the card's `href`, so the displayed `<span class="channel-val">01099887766</span>` stayed on the seeded default forever; the phone updater only touched `.store-phone-display` (the inner span), so the card's wrapping `<a href="tel:19876">` kept dialing the old number while the visible text did update.
     - Fix: the phone loop now updates the span text (or an inner `.channel-val` if the class ever sits on the anchor) and points `el` itself or `el.closest('a')` at `tel:<contactPhone>`; the WhatsApp loop additionally writes `whatsappNumber` into an inner `.channel-val` when present (other shapes keep their previous href-only behavior). Both fall back to the old defaults when settings are empty.
     - Related paths checked: top-bar social links are already rebuilt from settings via `#topBarSocialLinks` on all four pages (the hardcoded `wa.me` markup there is only pre-JS fallback); the email card already updated both text and `href`. Verified with esprima.
+17. **Branch delete button only cleared browser memory (owner report + screenshot)**
+    - Root cause: `AdminBranches.deleteBranch` (`branches.js`) hand-rolled `localStorage.setItem('taj_branches_v1', …)` plus a local `CustomEvent`, bypassing `TajAPI` entirely — in remote mode the table re-fetches from the server, so the row survived every render and the database was never touched.
+    - The servers already had the needed route: the generic admin-gated `DELETE /api/{categories|products|branches}/:id` in *both* copies (`server.mjs:321-328`, `functions/api/[[path]].js:238-239`) publishes `taj_branches_updated {deletedId}` — no server changes required.
+    - Fix (client only): added `TajAPI.deleteBranch` to both `api.js` modes (local: filter `taj_branches_v1` + `notifyChange`; remote: `DELETE /branches/:id`) mirroring `deleteProduct`, and replaced the hand-rolled block in `branches.js` with `await TajAPI.deleteBranch(id)` + `this.render()`.
+    - Orders keep their `branchId`/`branchNameAr` snapshots, so order history and reports render unchanged; branch accounts keep filtering their own orders by stored id. Verified: esprima on both touched files; the live delete is pending on the owner's machine (no Node here).
+18. **Order-spam cooldown — owner-approved: 1 order / 10 s per IP, max 20 orders / hour per IP (login pattern)**
+    - `functions/api/[[path]].js` — new D1 table `order_attempts (ip_hash, last_at, hour_start, hour_count)` added to `ensureSchema` **and** `migrations/0001_init.sql`. `POST /orders` reads the row **before parsing the body** keyed by `CF-Connecting-IP` → `digest()` (identical keying to login) and returns `429` when the previous order was <10 s ago or the fixed hour window (anchored at the first order of the window) already holds 20. The attempt is recorded only after a successful insert (validation failures never consume allowance); rows idle >1 h are deleted on the next successful order.
+    - `server/server.mjs` — identical logic on an in-memory `orderAttempts` Map keyed by `req.socket.remoteAddress` (same source as `loginFailures`), swept once the map exceeds 1000 entries. `GET /orders` untouched — the admin list/stats/polling are never throttled.
+    - Client: `api.js` `request()` now attaches `error.status` to thrown errors; `cart.js` maps `429` → new i18n key `orderRateLimit` (ar + en tables) instead of the raw English server message (`Too many order requests. Please try again shortly.`).
+    - Scope notes: local (non-remote) mode has no server or IP and does not throttle; the hour window is fixed (worst case ≈40 orders across a window boundary — accepted approximation); any distributed source defeats every per-IP counter, so the Cloudflare edge rate-limiting rule stays available as the no-code extra layer (findings S2/S15 remain otherwise as declined).
+    - Verified: esprima on all 5 touched JS files; Python simulation of the cooldown logic (25/25 cases: burst block, cooldown expiry, hour cap, window reset); `smoke.mjs` restructured — the rapid 2nd order now expects `429`, then a 10.5 s sleep, then the normal order expects `201` (14 checks total). Live run pending on the owner's machine.
 
 ### Session — 2026-10-04 (two-pass security audit + approved fixes, PBKDF2 upgrade, SQL aggregation)
 
@@ -211,6 +223,8 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 - **i18n rules**: admin templates use either `I18N.t('key')` or inline `isAr ? 'عربي' : 'English'`; storefront uses `data-i18n`/`data-i18n-placeholder` attributes applied by `applyToDOM` in `i18n.js` plus the `taj_lang_changed` event. Any new key must be added to **both** the `ar` and `en` tables. Arabic strings must remain byte-identical when they already exist.
 - **Runtime config**: `window.TAJ_CONFIG = { apiBaseUrl: '/api', mode: 'remote' }` in `public/assets/js/config.js` (switch to `mode: 'local'` only for offline/local-storage use).
 - **Auth shape**: server routes before the auth gate in `functions/api/[[path]].js` (health, login/logout/me, events, catalogue lists + single GET, `GET /products/popular`, settings, `POST /orders`) are public by design — storefront guests depend on them.
+- **Admin mutations go through `TajAPI`**: never hand-roll `localStorage` writes inside admin controllers — remote mode re-fetches from the server, so a local write silently no-ops (past bug: the branch delete button cleared only browser memory; log item 17). If `TajAPI` lacks a method, add it to **both** api.js modes first, then call it.
+- **Settings-bound updaters refresh text *and* links**: when a settings value drives a storefront card, the updater must update both the displayed value and the wrapping `<a>` href (`tel:` / `wa.me` / `mailto:`) — updating one side only ships a half-stale card (past bug: contact cards; log item 16).
 
 ## Known intentionally-unchanged items
 
@@ -218,6 +232,8 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 
 - `customers.js` empty-search row (`لا يوجد عملاء يطابقون البحث`) still Arabic-only — it was not part of the photographed modal and was left untouched on request.
 - The English `calculationRule` text still appears in Arabic UI mode when data comes from the API (legacy behavior, accepted).
+- Product prices typed in the admin form are stored as JSON **strings** in the `products.data` blob (owner decision 2026-10-06: "keep everything as is" — no monetary risk: cart totals, server-side order pricing (`Number(...)`), reports and CSV export all coerce correctly; seeds and Excel imports are numeric anyway). Known cosmetic effect: the discount badge (`storefront.js:395`) compares lexicographically, so form-saved products can hide a real discount (`"95" < "100"` → false) until re-saved. **Operational note: leave the discount field empty rather than typing `0`** — a stored `"0"` is truthy and would price that order at 0; empty sends `null` and falls back to the regular price.
+- Orders-tab summary cards ("الطلبات الجديدة / جاهز / مكتمل / ملغى") are counted **client-side** over one batch of the newest 1000 orders (`orders.js` fetches `limit=1000`; both servers clamp `limit` to 1000 — finding H7, owner decision 2026-10-06 to leave as is). Past 1000 total orders the completed/ready/cancelled cards undercount (older rows leave the window) and "new" caps at 1000; the table's `totalCount` (SQL `COUNT`) and the whole Reports tab (full-table SQL aggregation) are always exact. The future fix would be per-status `COUNT(*)` in SQL, mirroring `/reports`.
 - Not translated by decision: top announcement bar, "تابعنا:" header, brand text in the mobile drawer, page `<title>`/meta, login screen, notification panel wording, and the `منتج مستورد` fallback product name.
 
 © 2026 Taj El Khalig Sweets
