@@ -75,13 +75,18 @@ const Storefront = (function() {
 
       // Update shop headers, phones, and free delivery thresholds dynamically
       document.querySelectorAll('.store-phone-display').forEach(el => {
-        el.textContent = settings.contactPhone || '19876';
-        if (el.tagName === 'A') el.href = `tel:${settings.contactPhone}`;
+        const phone = settings.contactPhone || '19876';
+        const val = el.querySelector('.channel-val');
+        if (val) val.textContent = phone; else el.textContent = phone;
+        const anchor = el.tagName === 'A' ? el : el.closest('a');
+        if (anchor) anchor.href = `tel:${phone}`;
       });
 
       document.querySelectorAll('.store-whatsapp-link').forEach(el => {
-        const clean = (settings.whatsappNumber || '01099887766').replace(/[^0-9]/g, '');
-        el.href = `https://wa.me/2${clean}`;
+        const num = settings.whatsappNumber || '01099887766';
+        el.href = `https://wa.me/2${num.replace(/[^0-9]/g, '')}`;
+        const val = el.querySelector('.channel-val');
+        if (val) val.textContent = num;
       });
 
       document.querySelectorAll('.store-email-link').forEach(el => {
