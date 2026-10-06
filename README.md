@@ -10,6 +10,7 @@ The repository includes `wrangler.jsonc` with the D1 binding `DB` and database I
 2. Leave the build command empty and set the output directory to `public`. If Cloudflare offers to read `wrangler.jsonc`, allow it. The configuration declares the D1 binding.
 3. In the Pages project, open **Settings → Variables and Secrets** and add production secrets `TAJ_ADMIN_USER` and `TAJ_ADMIN_PASSWORD`. Use a unique password of at least 16 characters. Do not commit these values.
 4. Deploy the project. The first API request creates the D1 tables, inserts the starter catalogue/settings, and creates the first admin if both secrets are present. Open `/api/health` once, then sign in at `/admin/`.
+5. **Schema changes after the first launch:** both paths work — `npm run db:apply` (the migration file applies to the remote D1 **without** a deploy; every statement is `IF NOT EXISTS` so it is safe on populated tables) or a normal deploy (`ensureSchema` self-heals missing tables since its early-return was removed on 2026-10-06 — before that fix it silently skipped new tables on old databases and the first affected request 500'd). Remote check without creating data: `POST /api/orders` with a malformed body must answer `400 Invalid JSON`; a `500` means a required table is missing.
 
 The database currently has ID `c2b3d6fa-d455-4aa8-9122-e11ac1c9c2c8`. If Cloudflare asks to create a D1 binding manually, use variable name `DB` and select database `tag-el-khalig`. The SQL schema is also stored in `migrations/0001_init.sql` for manual review or setup.
 
@@ -36,7 +37,7 @@ Create a local `.dev.vars` file with `TAJ_ADMIN_USER` and `TAJ_ADMIN_PASSWORD` f
 - `public/` — customer storefront, assets, and `/admin/` dashboard.
 - `functions/api/[[path]].js` — same-origin Pages Functions API (**live production server**).
 - `migrations/0001_init.sql` — D1 schema.
-- `wrangler.jsonc` — Pages output and D1 binding.
+- `wrangler.jsonc` — Pages output, D1 binding, and the project `name` (must equal the real Pages project name — corrected `taj-el-khalig` → `tag-el-khalig` on 2026-10-06 after the stale name broke `npm run deploy`).
 - `server/server.mjs` — Node/SQLite copy of the API; **must be kept in parity** with the Functions API (every server-side change goes into both files).
 - `public/assets/js/api.js` — API client; contains the remote implementation plus a full local (localStorage) fallback that mirrors server behavior.
 - `public/_headers` — Cloudflare Pages response headers (the CSP / `X-Frame-Options` / `Referrer-Policy` set), kept identical to what `server.mjs` sends when it serves static files locally.
@@ -139,7 +140,7 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
     - `server/server.mjs` — identical logic on an in-memory `orderAttempts` Map keyed by `req.socket.remoteAddress` (same source as `loginFailures`), swept once the map exceeds 1000 entries. `GET /orders` untouched — the admin list/stats/polling are never throttled.
     - Client: `api.js` `request()` now attaches `error.status` to thrown errors; `cart.js` maps `429` → new i18n key `orderRateLimit` (ar + en tables) instead of the raw English server message (`Too many order requests. Please try again shortly.`).
     - Scope notes: local (non-remote) mode has no server or IP and does not throttle; the hour window is fixed (worst case ≈40 orders across a window boundary — accepted approximation); any distributed source defeats every per-IP counter, so the Cloudflare edge rate-limiting rule stays available as the no-code extra layer (findings S2/S15 remain otherwise as declined).
-    - Verified: esprima on all 5 touched JS files; Python simulation of the cooldown logic (25/25 cases: burst block, cooldown expiry, hour cap, window reset); `smoke.mjs` restructured — the rapid 2nd order now expects `429`, then a 10.5 s sleep, then the normal order expects `201` (14 checks total). Live run pending on the owner's machine.
+    - Verified: esprima on all 5 touched JS files; Python simulation of the cooldown logic (25/25 cases: burst block, cooldown expiry, hour cap, window reset); `smoke.mjs` restructured — the rapid 2nd order now expects `429`, then a 10.5 s sleep, then the normal order expects `201` (14 checks total). **Live run on this machine 2026-10-06: 14/14 passed** (Node v24 via full path — includes the rate-limit pair, headers, malformed-JSON→400, GPS, and SSE scenarios).
 
 ### Session — 2026-10-04 (two-pass security audit + approved fixes, PBKDF2 upgrade, SQL aggregation)
 
@@ -212,8 +213,8 @@ Storage math: an order row ≈ 1–2 KB (so ~200k+ orders fit if images stay bou
 ## Conventions for AI assistants working on this repo
 
 - **Language**: reply to the user in Arabic (Egyptian dialect). Work requests usually include "من غير ما تغير أي حاجة/أي إعدادات تانية" — keep every diff minimal and scoped exactly to what was asked; do not refactor or restyle anything else.
-- **No commits/pushes unless explicitly requested.** The user performs Cloudflare Pages deploys and hard refreshes manually, then verifies on phone + desktop.
-- **Verification without Node**: this machine has no node/npm/git. Validate JS with Python + `esprima` after normalizing:
+- **No commits/pushes unless explicitly requested.** Cloudflare operations (`npm run deploy`, `npm run db:apply`, `npx wrangler login`) run only on explicit owner go-ahead — all three were executed by the assistant on 2026-10-06 on request. The owner then hard-refreshes and verifies on phone + desktop.
+- **Build machine (corrected 2026-10-06 — earlier "no node here" notes were wrong):** Node v24 lives at `C:\Program Files\nodejs` but is off PATH, and PowerShell's execution policy blocks the `npm.ps1`/`npx.ps1` shims — prefix `$env:PATH = "C:\Program Files\nodejs;$env:PATH"` and invoke `node.exe`/`npm.cmd`/`npx.cmd` by full path. The live `smoke.mjs` therefore runs on this machine too (**14/14 passed on 2026-10-06**, invoked from the project root). For quick per-change syntax checks still validate JS with Python + `esprima` after normalizing:
   - remove numeric separators (`2_000_000` → `2000000`)
   - `??=` → ` || `, `??` → `||`, `?.` → `.__opt__.`
   - `catch {` / `catch{` → `catch (e) {`
