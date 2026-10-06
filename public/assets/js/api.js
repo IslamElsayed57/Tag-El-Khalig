@@ -936,6 +936,14 @@ const TajAPI = (function() {
       return branches[index];
     },
 
+    async deleteBranch(id) {
+      let branches = getStored(STORAGE_KEYS.BRANCHES, defaultBranches);
+      branches = branches.filter(b => b.id !== id);
+      setStored(STORAGE_KEYS.BRANCHES, branches);
+      notifyChange('taj_branches_updated', { deletedId: id });
+      return true;
+    },
+
     async getSettings() {
       return getStored(STORAGE_KEYS.SETTINGS, defaultSettings);
     },
@@ -1343,6 +1351,7 @@ const TajAPI = (function() {
     async getBranchById(id) { return request(`/branches/${encodeURIComponent(id)}`); },
     async createBranch(data) { return request('/branches', {method:'POST',body:JSON.stringify(data)}); },
     async updateBranch(id, data) { return request(`/branches/${encodeURIComponent(id)}`, {method:'PUT',body:JSON.stringify(data)}); },
+    async deleteBranch(id) { return request(`/branches/${encodeURIComponent(id)}`, {method:'DELETE'}); },
     async getSettings() { return request('/settings'); },
     async updateSettings(data) { return request('/settings', {method:'PUT',body:JSON.stringify(data)}); },
     async getOrders(filters = {}, page = 1, limit = 20) { return request(`/orders${query({page,limit,branchId:filters.branchId,status:filters.status,search:filters.search,phone:filters.phone,dateRange:filters.dateRange,startDate:filters.startDate,endDate:filters.endDate})}`); },

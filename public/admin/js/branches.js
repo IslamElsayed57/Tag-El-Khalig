@@ -269,10 +269,7 @@ const AdminBranches = (function() {
 
     async deleteBranch(branchId) {
       if (confirm(I18N.currentLang === 'ar' ? 'هل أنت متأكد من حذف هذا الفرع؟' : 'Are you sure you want to delete this branch?')) {
-        let branches = await TajAPI.getBranches();
-        branches = branches.filter(b => b.id !== branchId);
-        localStorage.setItem('taj_branches_v1', JSON.stringify(branches));
-        window.dispatchEvent(new CustomEvent('taj_branches_updated'));
+        await TajAPI.deleteBranch(branchId);
         this.render();
       }
     },
