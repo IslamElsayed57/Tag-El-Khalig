@@ -128,7 +128,8 @@ async function body(req) {
     raw += chunk;
     if (raw.length > 2_000_000) throw Object.assign(new Error('Request body too large'), { status:413 });
   }
-  return raw ? JSON.parse(raw) : {};
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { throw Object.assign(new Error('Invalid JSON'), { status:400 }); }
 }
 function cookie(req, key) {
   const part = (req.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith(`${key}=`));
@@ -430,6 +431,7 @@ async function handle(req, res) {
   return json(res, 404, { error:'API route not found' });
 }
 
+const CSP = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' https://www.openstreetmap.org";
 const mime = { '.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon' };
 const server = createServer(async (req, res) => {
   try {
@@ -441,7 +443,7 @@ const server = createServer(async (req, res) => {
     const info = await stat(file).catch(() => null);
     const target = info?.isDirectory() ? join(file, 'index.html') : file;
     if (!existsSync(target)) { res.writeHead(404); res.end('Not found'); return; }
-    res.writeHead(200, { 'Content-Type':mime[extname(target)] || 'application/octet-stream', 'X-Content-Type-Options':'nosniff' });
+    res.writeHead(200, { 'Content-Type':mime[extname(target)] || 'application/octet-stream', 'X-Content-Type-Options':'nosniff', 'Content-Security-Policy':CSP, 'X-Frame-Options':'DENY', 'Referrer-Policy':'strict-origin-when-cross-origin' });
     createReadStream(target).pipe(res);
   } catch (error) {
     console.error(error);

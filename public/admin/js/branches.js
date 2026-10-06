@@ -53,10 +53,10 @@ const AdminBranches = (function() {
               <tbody>
                 ${branches.map(b => `
                   <tr>
-                    <td><strong>${isAr ? b.nameAr : b.nameEn}</strong></td>
-                    <td style="font-size:0.85rem; max-width:240px;">${isAr ? b.addressAr : b.addressEn}</td>
-                    <td dir="ltr" style="font-family:monospace; font-size:0.9rem;">${b.phone}</td>
-                    <td>${(isAr ? b.managerAr : b.managerEn) || '—'}</td>
+                    <td><strong>${escapeHtml(isAr ? b.nameAr : b.nameEn)}</strong></td>
+                    <td style="font-size:0.85rem; max-width:240px;">${escapeHtml(isAr ? b.addressAr : b.addressEn)}</td>
+                    <td dir="ltr" style="font-family:monospace; font-size:0.9rem;">${escapeHtml(b.phone)}</td>
+                    <td>${escapeHtml(isAr ? b.managerAr : b.managerEn) || '—'}</td>
                     <td>
                       <span class="badge-status ${b.deliveryEligible ? 'completed' : 'cancelled'}">
                         ${b.deliveryEligible ? (isAr ? 'متاح للتوصيل' : 'Delivery Available') : (isAr ? 'استلام فقط' : 'Pickup Only')}
@@ -70,7 +70,7 @@ const AdminBranches = (function() {
                     <td>
                       <div style="display:flex; gap:0.4rem;">
                         <button type="button" class="btn btn-outline btn-sm" onclick="AdminBranches.openBranchModal('${b.id}')" title="${isAr ? 'تعديل' : 'Edit'}">✏️</button>
-                        <a href="${b.mapUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" title="${isAr ? 'خرائط Google' : 'Google Maps'}">🗺️</a>
+                        ${/^https:\/\//i.test(String(b.mapUrl || '').trim()) ? `<a href="${escapeHtml(b.mapUrl)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm" title="${isAr ? 'خرائط Google' : 'Google Maps'}">🗺️</a>` : ''}
                         <button type="button" class="btn btn-outline btn-sm" style="color:var(--danger); border-color:var(--danger);" onclick="AdminBranches.deleteBranch('${b.id}')" title="${isAr ? 'حذف' : 'Delete'}">🗑️</button>
                       </div>
                     </td>

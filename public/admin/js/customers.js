@@ -163,7 +163,7 @@ const AdminCustomers = (function() {
                 <div style="border:1px solid var(--admin-border); border-radius:var(--radius-md); padding:0.85rem; display:flex; justify-content:space-between; align-items:center;">
                   <div>
                     <div style="font-weight:800;">${isAr ? 'طلب' : 'Order'} #${order.id} - ${order.type === 'delivery' ? (isAr ? '🛵 توصيل' : '🛵 Delivery') : (isAr ? '🏬 استلام' : '🏬 Pickup')}</div>
-                    <div style="font-size:0.8rem; color:var(--admin-text-muted);">${new Date(order.createdAt).toLocaleString(isAr ? 'ar-EG' : 'en-US')} - ${isAr ? order.branchNameAr : order.branchNameEn}</div>
+                    <div style="font-size:0.8rem; color:var(--admin-text-muted);">${new Date(order.createdAt).toLocaleString(isAr ? 'ar-EG' : 'en-US')} - ${escapeHtml(isAr ? order.branchNameAr : order.branchNameEn)}</div>
                   </div>
                   <div style="text-align:end;">
                     <div style="font-weight:900; color:var(--admin-primary);">${order.total} ${I18N.t('egp')}</div>

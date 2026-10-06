@@ -210,10 +210,10 @@ const TajCart = (function() {
       // Items list - built and rendered immediately, before any network call,
       // so the drawer never shows a stale/empty state on slow connections.
       const itemsHtml = cartItems.map(item => `
-        <div class="cart-item" data-id="${item.id}">
-          <img src="${item.image}" alt="${isAr ? item.nameAr : item.nameEn}" class="cart-item-img">
+        <div class="cart-item" data-id="${escapeHtml(item.id)}">
+          <img src="${/^(assets\/|data:image\/)/.test(item.image) ? item.image : 'assets/images/kunafa_plate.jpg'}" alt="${escapeHtml(isAr ? item.nameAr : item.nameEn)}" class="cart-item-img">
           <div class="cart-item-info">
-            <h4 class="cart-item-title">${isAr ? item.nameAr : item.nameEn}</h4>
+            <h4 class="cart-item-title">${escapeHtml(isAr ? item.nameAr : item.nameEn)}</h4>
             <div class="cart-item-price">${item.price} ${I18N.t('egp')}</div>
             <div class="cart-item-qty-row">
               <div class="qty-control">
@@ -305,16 +305,18 @@ const TajCart = (function() {
           <div class="fulfillment-branch-box">
             <label class="form-label">${I18N.t('selectBranch')}</label>
             <select class="form-select" id="pickupBranchSelect" onchange="TajCart.setBranch(this.value)">
-              ${branches.map(b => `<option value="${b.id}" ${b.id === selectedBranchId ? 'selected' : ''}>${isAr ? b.nameAr : b.nameEn}</option>`).join('')}
+              ${branches.map(b => `<option value="${escapeHtml(b.id)}" ${b.id === selectedBranchId ? 'selected' : ''}>${escapeHtml(isAr ? b.nameAr : b.nameEn)}</option>`).join('')}
             </select>
             ${selectedBranch ? `
               <div class="branch-summary-card">
-                <div class="branch-summary-item"><strong>📍 ${I18N.t('branchAddress')}:</strong> ${isAr ? selectedBranch.addressAr : selectedBranch.addressEn}</div>
-                <div class="branch-summary-item"><strong>📞 ${I18N.t('branchPhone')}:</strong> <a href="tel:${selectedBranch.phone}">${selectedBranch.phone}</a></div>
-                ${selectedBranch.managerAr ? `<div class="branch-summary-item"><strong>👤 ${I18N.t('branchManager')}:</strong> ${isAr ? selectedBranch.managerAr : selectedBranch.managerEn}</div>` : ''}
-                <a href="${selectedBranch.mapUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm mt-2">
+                <div class="branch-summary-item"><strong>📍 ${I18N.t('branchAddress')}:</strong> ${escapeHtml(isAr ? selectedBranch.addressAr : selectedBranch.addressEn)}</div>
+                <div class="branch-summary-item"><strong>📞 ${I18N.t('branchPhone')}:</strong> <a href="tel:${escapeHtml(selectedBranch.phone)}">${escapeHtml(selectedBranch.phone)}</a></div>
+                ${selectedBranch.managerAr ? `<div class="branch-summary-item"><strong>👤 ${I18N.t('branchManager')}:</strong> ${escapeHtml(isAr ? selectedBranch.managerAr : selectedBranch.managerEn)}</div>` : ''}
+                ${/^https:\/\//i.test(String(selectedBranch.mapUrl || '').trim()) ? `
+                <a href="${escapeHtml(selectedBranch.mapUrl)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm mt-2">
                   🗺️ ${I18N.t('openInMaps')}
                 </a>
+                ` : ''}
               </div>
             ` : ''}
           </div>
@@ -324,7 +326,7 @@ const TajCart = (function() {
           <div class="fulfillment-delivery-box">
             <label class="form-label">${I18N.t('selectDeliveryBranch')}</label>
             <select class="form-select" id="deliveryBranchSelect" onchange="TajCart.setBranch(this.value)">
-              ${branches.filter(b => b.deliveryEligible).map(b => `<option value="${b.id}" ${b.id === selectedBranchId ? 'selected' : ''}>${isAr ? b.nameAr : b.nameEn}</option>`).join('')}
+              ${branches.filter(b => b.deliveryEligible).map(b => `<option value="${escapeHtml(b.id)}" ${b.id === selectedBranchId ? 'selected' : ''}>${escapeHtml(isAr ? b.nameAr : b.nameEn)}</option>`).join('')}
             </select>
 
             <div class="gps-container">
@@ -584,7 +586,7 @@ const TajCart = (function() {
             <div class="modal-details-summary">
               <div class="detail-row">
                 <span>${I18N.t('orderCustomer')}:</span>
-                <strong>${order.customerName}</strong>
+                <strong>${escapeHtml(order.customerName)}</strong>
               </div>
               <div class="detail-row">
                 <span>${I18N.t('orderPhone')}:</span>
@@ -592,7 +594,7 @@ const TajCart = (function() {
               </div>
               <div class="detail-row">
                 <span>${I18N.t('orderBranch')}:</span>
-                <strong>${isAr ? order.branchNameAr : order.branchNameEn}</strong>
+                <strong>${escapeHtml(isAr ? order.branchNameAr : order.branchNameEn)}</strong>
               </div>
               <div class="detail-row">
                 <span>${I18N.t('orderTotal')}:</span>

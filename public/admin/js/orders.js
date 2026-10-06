@@ -153,7 +153,7 @@ const AdminOrders = (function() {
                         ${o.type === 'delivery' ? '🛵 ' + I18N.t('fulfillmentDelivery') : '🏬 ' + I18N.t('fulfillmentPickup')}
                       </span>
                     </td>
-                    <td>${isAr ? o.branchNameAr : o.branchNameEn}</td>
+                    <td>${escapeHtml(isAr ? o.branchNameAr : o.branchNameEn)}</td>
                     <td><strong>${o.total} ${I18N.t('egp')}</strong></td>
                     <td>
                       <span class="badge-status ${o.status}">
@@ -364,7 +364,7 @@ const AdminOrders = (function() {
                 <div><strong>${I18N.t('customerName')}:</strong> ${escapeHtml(order.customerName)}</div>
                 <div><strong>${I18N.t('orderPhone')}:</strong> <a href="tel:${order.customerPhone}" dir="ltr">${order.customerPhone}</a></div>
                 <div><strong>${I18N.t('orderType')}:</strong> ${order.type === 'delivery' ? I18N.t('fulfillmentDelivery') : I18N.t('fulfillmentPickup')}</div>
-                <div><strong>${I18N.t('orderBranch')}:</strong> ${isAr ? order.branchNameAr : order.branchNameEn}</div>
+                <div><strong>${I18N.t('orderBranch')}:</strong> ${escapeHtml(isAr ? order.branchNameAr : order.branchNameEn)}</div>
               </div>
               ${order.address ? `
                 <div style="margin-top:0.6rem; font-size:0.9rem;">
@@ -385,9 +385,9 @@ const AdminOrders = (function() {
               ${order.items.map(item => `
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:0.6rem; border:1px solid var(--admin-border); border-radius:var(--radius-md);">
                   <div style="display:flex; align-items:center; gap:0.75rem;">
-                    <img src="${item.image.startsWith('../') ? item.image.replace('../', '') : item.image}" alt="${isAr ? item.nameAr : item.nameEn}" style="width:48px; height:48px; border-radius:8px; object-fit:cover;">
+                    <img src="${/^(assets\/|data:image\/)/.test(item.image) ? item.image : 'assets/images/kunafa_plate.jpg'}" alt="${escapeHtml(isAr ? item.nameAr : item.nameEn)}" style="width:48px; height:48px; border-radius:8px; object-fit:cover;">
                     <div>
-                      <div style="font-weight:700; font-size:0.95rem;">${isAr ? item.nameAr : item.nameEn}</div>
+                      <div style="font-weight:700; font-size:0.95rem;">${escapeHtml(isAr ? item.nameAr : item.nameEn)}</div>
                       <div style="font-size:0.85rem; color:var(--admin-text-muted);">${item.price} ${I18N.t('egp')} × ${item.quantity}</div>
                     </div>
                   </div>

@@ -117,7 +117,7 @@ async function body(request) {
   const length=Number(request.headers.get('Content-Length')||0);
   if(length>2_000_000) throw Object.assign(new Error('Request body too large'),{status:413});
   const reader=request.body&&request.body.getReader?request.body.getReader():null;
-  if(!reader) return await request.json();
+  if(!reader) return {};
   const decoder=new TextDecoder();let raw='';
   while(true){
     const chunk=await reader.read();
@@ -125,7 +125,8 @@ async function body(request) {
     raw+=decoder.decode(chunk.value,{stream:true});
     if(raw.length>2_000_000){try{await reader.cancel();}catch{}throw Object.assign(new Error('Request body too large'),{status:413});}
   }
-  return raw?JSON.parse(raw):{};
+  if(!raw) return {};
+  try { return JSON.parse(raw); } catch { throw Object.assign(new Error('Invalid JSON'),{status:400}); }
 }
 async function list(env, table, activeOnly=false) {
   const rows = await env.DB.prepare(`SELECT data FROM ${table}${activeOnly?' WHERE active=1':''}`).all();

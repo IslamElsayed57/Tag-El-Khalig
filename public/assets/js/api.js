@@ -4,6 +4,23 @@
  * for pages that deliberately omit the server runtime configuration.
  */
 
+// Shared HTML-escape helper — available to every page (storefront, admin, cart).
+// Prevents XSS when server-supplied text is interpolated into innerHTML templates.
+window.escapeHtml = function escapeHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
+};
+
+// Validates a URL is safe to use in an href (http/https only).
+// Returns '' for javascript:, data:, or anything unparseable.
+window.safeUrl = function safeUrl(url) {
+  try {
+    const u = new URL(String(url || ''));
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? url : '';
+  } catch { return ''; }
+};
+
 const TajAPI = (function() {
   const STORAGE_KEYS = {
     PRODUCTS: 'taj_products_v1',
