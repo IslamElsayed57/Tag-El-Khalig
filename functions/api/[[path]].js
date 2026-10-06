@@ -30,8 +30,6 @@ const DEFAULT_BRANCHES = [
 const DEFAULT_SETTINGS = { shopNameAr:'حلواني تاج الخليج', shopNameEn:'Taj El Khalig Sweets', taglineAr:'أحلى طعم لأصالة الحلويات الشرقية والغربية', taglineEn:'The sweetest taste of authentic pastries', contactPhone:'19876', whatsappNumber:'01099887766', contactEmail:'info@tajelkhalig.com', facebookUrl:'https://facebook.com/tajelkhaligsweets', instagramUrl:'https://instagram.com/tajelkhaligsweets', tiktokUrl:'https://tiktok.com/@tajelkhaligsweets', deliveryFee:25, freeDeliveryThreshold:250, currencyAr:'ج.م', currencyEn:'EGP' };
 
 async function ensureSchema(db) {
-  const existing=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='categories'").first();
-  if(existing) return;
   const statements=[
     'CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, active INTEGER NOT NULL DEFAULT 1, data TEXT NOT NULL)',
     'CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, category_id TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, data TEXT NOT NULL)',
