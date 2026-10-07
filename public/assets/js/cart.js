@@ -544,7 +544,7 @@ const TajCart = (function() {
         this.closeDrawer();
 
         // Show Order Success Modal
-        this.showOrderSuccessModal(savedOrder);
+        this.showOrderSuccessModal(savedOrder, branch);
       } catch (err) {
         alert(err.status === 429 ? I18N.t('orderRateLimit') : I18N.t('error') + ': ' + err.message);
         if (submitBtn) {
@@ -557,7 +557,7 @@ const TajCart = (function() {
       }
     },
 
-    showOrderSuccessModal(order) {
+    showOrderSuccessModal(order, branch) {
       const isAr = I18N.currentLang === 'ar';
       let modal = document.getElementById('orderSuccessModal');
       if (!modal) {
@@ -569,7 +569,7 @@ const TajCart = (function() {
 
       const settingsPromise = TajAPI.getSettings();
       settingsPromise.then(settings => {
-        const whatsappNumber = settings.whatsappNumber || '01099887766';
+        const whatsappNumber = (branch && branch.phone) ? branch.phone : (settings.whatsappNumber || '01099887766');
         const cleanWhatsapp = whatsappNumber.replace(/[^0-9]/g, '');
         const whatsappText = encodeURIComponent(`مرحباً حلواني تاج الخليج، أود تأكيد طلبي رقم #${order.id} باسم ${order.customerName} بقيمة ${order.total} ج.م.`);
         const whatsappUrl = `https://wa.me/2${cleanWhatsapp}?text=${whatsappText}`;
