@@ -167,8 +167,23 @@ const AdminApp = (function() {
       this.bindTabNavigation();
       this.bindTopbarActions();
       this.bindDataSync();
+      await this.restoreOrderAlerts();
       this.switchTab('orders');
       updateNotifBadge();
+    },
+
+    // After a refresh or re-login, resume the alert for every order
+    // that nobody has acted on yet (status still "new").
+    async restoreOrderAlerts() {
+      try {
+        const watched = window.AdminOrders && typeof AdminOrders.getWatchedBranchId === 'function'
+          ? AdminOrders.getWatchedBranchId()
+          : 'all';
+        const result = await TajAPI.getOrders({ status: 'new', branchId: watched }, 1, 200);
+        (result.orders || []).forEach(o => startOrderAlert(o.id));
+      } catch (e) {
+        console.warn('Could not restore order alerts', e);
+      }
     },
 
     getCurrentUser() {
