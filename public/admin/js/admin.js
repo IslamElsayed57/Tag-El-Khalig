@@ -102,7 +102,8 @@ const AdminApp = (function() {
   let pendingOrderAlerts = new Set();
   let orderAlertTimer = null;
   // Orders silenced via the per-order stop button stay silent across
-  // refreshes while they are still "new" (stale ids pruned on restore).
+  // refreshes and account switches in this browser (never pruned — see
+  // restoreOrderAlerts).
   let mutedOrderAlerts = (() => {
     try { return new Set(JSON.parse(localStorage.getItem('taj_muted_order_alerts') || '[]')); }
     catch (e) { return new Set(); }
@@ -225,12 +226,11 @@ const AdminApp = (function() {
           ? AdminOrders.getWatchedBranchId()
           : 'all';
         const result = await TajAPI.getOrders({ status: 'new', branchId: watched }, 1, 200);
-        const stillNew = new Set((result.orders || []).map(o => String(o.id)));
-        const pruned = [...mutedOrderAlerts].filter(id => stillNew.has(id));
-        if (pruned.length !== mutedOrderAlerts.size) {
-          mutedOrderAlerts = new Set(pruned);
-          persistMutedOrderAlerts();
-        }
+        // Never prune the muted set here: the fetch is scoped to the watched
+        // branch, but localStorage is shared by every account in this browser —
+        // pruning against a branch-scoped list wiped the other branches' mutes
+        // (branch logins kept un-muting each other). Stale ids are harmless
+        // (order ids are unique and never reused).
         (result.orders || []).forEach(o => startOrderAlert(o.id));
       } catch (e) {
         console.warn('Could not restore order alerts', e);
