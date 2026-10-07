@@ -101,6 +101,15 @@ const AdminApp = (function() {
   // from the orders table.
   let pendingOrderAlerts = new Set();
   let orderAlertTimer = null;
+  // Orders silenced via the per-order stop button stay silent across
+  // refreshes while they are still "new" (stale ids pruned on restore).
+  let mutedOrderAlerts = (() => {
+    try { return new Set(JSON.parse(localStorage.getItem('taj_muted_order_alerts') || '[]')); }
+    catch (e) { return new Set(); }
+  })();
+  function persistMutedOrderAlerts() {
+    try { localStorage.setItem('taj_muted_order_alerts', JSON.stringify([...mutedOrderAlerts])); } catch (e) {}
+  }
 
   function ensureOrderAlertLoop() {
     if (orderAlertTimer) return;
@@ -115,11 +124,14 @@ const AdminApp = (function() {
   }
 
   function startOrderAlert(orderId) {
+    if (mutedOrderAlerts.has(String(orderId))) return;
     pendingOrderAlerts.add(String(orderId));
     ensureOrderAlertLoop();
   }
 
   function stopOrderAlert(orderId) {
+    mutedOrderAlerts.add(String(orderId));
+    persistMutedOrderAlerts();
     pendingOrderAlerts.delete(String(orderId));
     if (pendingOrderAlerts.size === 0 && orderAlertTimer) {
       clearInterval(orderAlertTimer);
@@ -213,6 +225,12 @@ const AdminApp = (function() {
           ? AdminOrders.getWatchedBranchId()
           : 'all';
         const result = await TajAPI.getOrders({ status: 'new', branchId: watched }, 1, 200);
+        const stillNew = new Set((result.orders || []).map(o => String(o.id)));
+        const pruned = [...mutedOrderAlerts].filter(id => stillNew.has(id));
+        if (pruned.length !== mutedOrderAlerts.size) {
+          mutedOrderAlerts = new Set(pruned);
+          persistMutedOrderAlerts();
+        }
         (result.orders || []).forEach(o => startOrderAlert(o.id));
       } catch (e) {
         console.warn('Could not restore order alerts', e);
