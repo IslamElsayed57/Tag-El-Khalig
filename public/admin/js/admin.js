@@ -63,6 +63,39 @@ const AdminApp = (function() {
     }
   }
 
+  // Audio unlock: the first click/tap/key anywhere activates sound,
+  // and a warning bar stays visible while sound is still locked.
+  function updateAudioBanner() {
+    let bar = document.getElementById('audioUnlockBar');
+    const locked = isSoundEnabled
+      && !document.getElementById('adminLoginOverlay')
+      && (!audioCtx || audioCtx.state !== 'running');
+    if (!locked) { if (bar) bar.remove(); return; }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'audioUnlockBar';
+      bar.style.cssText = 'position:fixed;bottom:0;inset-inline:0;z-index:2000;background:#E4007C;color:#fff;text-align:center;padding:0.6rem 1rem;font-weight:700;cursor:pointer;';
+      bar.textContent = '🔔 اضغط هنا أو في أي مكان لتفعيل صوت تنبيهات الطلبات';
+      document.body.appendChild(bar);
+    }
+  }
+
+
+  function unlockAudio() {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    ctx.resume().then(() => {
+      if (ctx.state === 'running') {
+        ['pointerdown', 'keydown', 'touchstart'].forEach(e => document.removeEventListener(e, unlockAudio));
+      }
+      updateAudioBanner();
+    }).catch(() => {});
+  }
+
+
+  ['pointerdown', 'keydown', 'touchstart'].forEach(e => document.addEventListener(e, unlockAudio));
+  setInterval(updateAudioBanner, 2000);
+
   // Repeating alerts for unhandled new orders: the chime plays every second
   // until the order gets an action (status change) or is stopped manually
   // from the orders table.
