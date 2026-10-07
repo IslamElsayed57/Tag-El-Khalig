@@ -1303,7 +1303,7 @@ const TajAPI = (function() {
     let cursor = null;
     let inFlight = false;
     const poll = async () => {
-      if (inFlight || generation !== eventPollGeneration || document.visibilityState === 'hidden') return;
+      if (inFlight || generation !== eventPollGeneration) return;
       inFlight = true;
       try {
         const suffix = cursor === null ? '' : `?since=${encodeURIComponent(cursor)}`;
